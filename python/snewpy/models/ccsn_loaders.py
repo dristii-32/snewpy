@@ -13,14 +13,11 @@ import tarfile
 from astropy import units as u
 from astropy.table import Table, join
 from astropy.io import ascii, fits
+from astropy_healpix import HEALPix as hp
+
 import h5py
 import numpy as np
 from scipy.special import gamma, lpmv
-
-try:
-    import healpy as hp
-except ImportError:
-    pass
 
 from snewpy.models.base import PinchedModel, SupernovaModel
 from snewpy.flavor import ThreeFlavor
