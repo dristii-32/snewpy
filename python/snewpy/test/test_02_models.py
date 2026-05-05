@@ -281,7 +281,7 @@ class TestModels(unittest.TestCase):
         """
         for mass in ['12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '25', '26', '26.99']:
             mfile = 'Fornax_2021/lum_spec_{}M_r10000_dat.h5'.format(mass)
-            model = Fornax_2021(os.path.join(model_path, mfile), metadata={'Progenitor mass': mass*u.Msun})
+            model = Fornax_2021(os.path.join(model_path, mfile), metadata={'Progenitor mass': float(mass)*u.Msun})
 
             self.assertEqual(model.metadata['Progenitor mass'], float(mass)*u.Msun)
 
