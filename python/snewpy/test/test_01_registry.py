@@ -47,6 +47,13 @@ class TestModels(unittest.TestCase):
         self.assertEqual(type(f), flux.Container['1/(MeV*s)'])
         self.assertEqual(len(f.flavor),len(ThreeFlavor))
         self.assertEqual(f[ThreeFlavor.NU_E].unit, 1/(u.MeV * u.s))
+
+    def check_model_spectra_angular(self, model):
+        # Check that we can compute flux dictionaries.
+        f = model.get_initial_spectra([0]*u.s, [10]*u.MeV, theta=0*u.deg, phi=0*u.deg)
+        self.assertEqual(type(f), flux.Container['1/(MeV*s)'])
+        self.assertEqual(len(f.flavor),len(ThreeFlavor))
+        self.assertEqual(f[ThreeFlavor.NU_E].unit, 1/(u.MeV * u.s))
         
     def test_Nakazato_2013(self):
         """
@@ -224,8 +231,6 @@ class TestModels(unittest.TestCase):
                 self.check_model_spectra(model)
     
     
-    @unittest.expectedFailure
-    #we know the Fornax_2019 is now inconsistent with our interface
     def test_Fornax_2019(self):
         """
         Instantiate a set of 'Fornax 2019' models
@@ -240,7 +245,7 @@ class TestModels(unittest.TestCase):
             self.assertTrue(t.unit, u.s)
 
             # Check that we can compute flux dictionaries.
-            self.check_model_spectra(model)
+            self.check_model_spectra_angular(model)
 
     def test_Warren_2020(self):
         """
