@@ -19,6 +19,7 @@ import h5py
 import numpy as np
 from scipy.special import gamma, lpmv
 
+from snewpy.flux import Spectrum
 from snewpy.models.base import PinchedModel, SupernovaModel
 from snewpy.flavor import ThreeFlavor
 from snewpy import _model_downloader
@@ -527,7 +528,10 @@ class Fornax_2019(SupernovaModel):
         
     def get_initial_spectra(self, t, E, theta, phi, flavors=ThreeFlavor, interpolation='linear'):
         spectra_dict = self._get_initial_spectra_dict(t, E, theta, phi, flavors, interpolation)
-        return Spectrum.from_dict(spectra_dict,t, E,flavor_scheme=flavors)
+        return Spectrum.from_dict(spectra_dict,
+                                  time=t,
+                                  energy=E,
+                                  flavor_scheme=ThreeFlavor)
 
     def _get_initial_spectra_dict(self, t, E, theta, phi, flavors=ThreeFlavor, interpolation='linear'):
         """Get neutrino spectra/luminosity curves before flavor transformation.
