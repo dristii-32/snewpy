@@ -13,7 +13,7 @@ import tarfile
 from astropy import units as u
 from astropy.table import Table, join
 from astropy.io import ascii, fits
-from astropy_healpix import HEALPix as hp
+from astropy_healpix import healpy as hp
 
 import h5py
 import numpy as np
