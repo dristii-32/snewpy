@@ -80,7 +80,7 @@ class SnowglobesData:
             self._load_smearing_matrices(self.base_dir/'smear')
 
     def _load_detectors(self, path:Path, detectors:str):
-        df = pd.read_table(path, names=['name', 'mass', 'factor'], sep='\s+', comment='#')
+        df = pd.read_table(path, names=['name', 'mass', 'factor'], sep=r'\s+', comment='#')
         df['tgt_mass']=df.mass*df.factor
 
         if detectors == 'all':
