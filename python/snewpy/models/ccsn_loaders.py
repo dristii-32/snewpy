@@ -24,6 +24,8 @@ from snewpy.models.base import PinchedModel, SupernovaModel
 from snewpy.flavor import ThreeFlavor
 from snewpy import _model_downloader
 
+import multiprocessing
+
 class GarchingArchiveModel(PinchedModel):
     """Subclass that reads models in the format used in the
     `Garching Supernova Archive <https://wwwmpa.mpa-garching.mpg.de/ccsnarchive/>`_."""
@@ -280,7 +282,6 @@ class Kuroda_2020(PinchedModel):
 
         super().__init__(simtab, metadata)
 
-
 class Fornax_2019(SupernovaModel):
     def __init__(self, filename, metadata={}, cache_flux=False):
         """
@@ -301,14 +302,6 @@ class Fornax_2019(SupernovaModel):
         self.dLdE_unit = 1e50 * u.erg/(u.s*u.MeV)
         self.time = None
 
-        # Conversion of flavor to key name in the model HDF5 file.
-        self._flavorkeys = {ThreeFlavor.NU_E: 'nu0',
-                            ThreeFlavor.NU_E_BAR: 'nu1',
-                            ThreeFlavor.NU_MU: 'nu2',
-                            ThreeFlavor.NU_MU_BAR: 'nu2',
-                            ThreeFlavor.NU_TAU: 'nu2',
-                            ThreeFlavor.NU_TAU_BAR: 'nu2'}
-                            
         self.E = {}
         self.dE = {}
         self.dLdE = {}
@@ -334,55 +327,148 @@ class Fornax_2019(SupernovaModel):
             self.nside = hp.npix2nside(npix)
             self.is_cached = True
         else:
+            # Load data from HDF5
             with h5py.File(datafile, 'r') as _h5file:              
                 if self.time is None:
                     self.time = _h5file['nu0']['g0'].attrs['time'] * u.s
+                h5data = self._load_entire_hdf5(_h5file)
 
-                # Use a HEALPix grid with nside=4 (192 pixels) to cache the
-                # values of Y_lm(theta, phi).
-                self.nside = 4
-                self.npix = hp.nside2npix(self.nside)
-                thetac, phic = hp.pix2ang(self.nside, np.arange(self.npix))
+            # Use a HEALPix grid with nside=4 (192 pixels) to cache the
+            # values of Y_lm(theta, phi).
+            self.nside = 4
+            self.npix = hp.nside2npix(self.nside)
+            thetac, phic = hp.pix2ang(self.nside, np.arange(self.npix))
 
-                Ylm = {}
+            Ylm = {}
+            for l in range(3):
+                Ylm[l] = {}
+                for m in range(-l, l+1):
+                    Ylm[l][m] = Fornax_2019._real_sph_harm(l, m, thetac, phic)
+
+            # Store 3D tables of dL/dE for each flavor.
+            nproc = len(ThreeFlavor)
+            with multiprocessing.Pool(processes=nproc, initializer=self._init_data, initargs=(h5data, Ylm, self.npix, self.dLdE_unit)) as pool:
+                data = pool.map(self._get_flavor_data, ThreeFlavor)
+
+            for (_flavor, _E, _dE, _dLdE, _lum) in data:
+                self.E[_flavor] = _E
+                self.dE[_flavor] = _dE
+                self.dLdE[_flavor] = _dLdE
+                self.luminosity[_flavor] = _lum
+
+            # Write output to FITS.
+            if cache_flux:
+                self._write_fits(fitsfile, overwrite=True)
+                self.is_cached = True
+
+    @staticmethod
+    def _load_entire_hdf5(dct):
+        """Load full dictionary from HDF5"""
+        if isinstance(dct, h5py.Dataset):
+            return dct[()]
+        ret = {}
+        for k, v in dct.items():
+            ret[k] = Fornax_2019._load_entire_hdf5(v)
+        return ret
+
+    @staticmethod
+    def _flavorkeys(flavor):
+        """Convert flavor to data keys.
+        """
+        if flavor == ThreeFlavor.NU_E:
+            return 'nu0'
+        elif flavor == ThreeFlavor.NU_E_BAR:
+            return 'nu1'
+        else:
+            return 'nu2'
+
+    @staticmethod
+    def _init_data(hdf5_data, ylm, npix, dlde_unit):
+        """Variable initializer for the multiprocessing pool."""
+        global h5data
+        global Ylm
+        global Npix
+        global dLdE_unit
+        h5data = hdf5_data
+        Ylm = ylm
+        Npix = npix
+        dLdE_unit = dlde_unit
+
+    @staticmethod
+    def _get_flavor_data(flavor):
+        """Function to extract spectra for one flavor from HDF5."""
+        key = Fornax_2019._flavorkeys(flavor)
+        E  = h5data[key]['egroup'] * u.MeV
+        dE = h5data[key]['degroup'] * u.MeV
+
+        ntim, nene = E.shape
+        dLdE = np.zeros((ntim, nene, Npix), dtype=float)
+
+        # Loop over time bins
+        for i in range(ntim):
+            # Loop over energy bins:
+            for j in range(nene):
+                dLdE_ij = 0.
+                # Sum over multipole moments:
                 for l in range(3):
-                    Ylm[l] = {}
                     for m in range(-l, l+1):
-                        Ylm[l][m] = self._real_sph_harm(l, m, thetac, phic)
+                        dLdE_ij += h5data[key][f'g{j}'][f'l={l} m={m}'][i] * Ylm[l][m]
+                dLdE[i][j] = dLdE_ij
 
-                # Store 3D tables of dL/dE for each flavor.
-                for flavor in ThreeFlavor:
-                    key = self._flavorkeys[flavor]
-                    logger.info('Caching {} for {} ({})'.format(filename, str(flavor), key))
+        # Set up proper units and correct for the nu_x factor
+        factor = 1. if flavor.is_electron else 0.25
+        dLdE = dLdE * factor * dLdE_unit
 
-                    self.E[flavor] = _h5file[key]['egroup'][()] * u.MeV
-                    self.dE[flavor] = _h5file[key]['degroup'][()] * u.MeV
+        # Integrate over energy to get luminosity
+        L = np.sum(dLdE * dE[:, :, np.newaxis], axis=1)
 
-                    ntim, nene = self.E[flavor].shape
-                    self.dLdE[flavor] = np.zeros((ntim, nene, self.npix), dtype=float)
-                    # Loop over time bins.
-                    for i in range(ntim):
-                        # Loop over energy bins.
-                        for j in range(nene):
-                            dLdE_ij = 0.
-                            # Sum over multipole moments.
-                            for l in range(3):
-                                for m in range(-l, l+1):
-                                    dLdE_ij += _h5file[key]['g{}'.format(j)]['l={} m={}'.format(l, m)][i] * Ylm[l][m]
-                            self.dLdE[flavor][i][j] = dLdE_ij
+        return (flavor, E, dE, dLdE, L)
 
-                    factor = 1. if flavor.is_electron else 0.25
-                    self.dLdE[flavor] = self.dLdE[flavor] * factor * self.dLdE_unit
+    @staticmethod
+    def _fact(n):
+        """Calculate n!.
 
-                    # Write output to FITS.
-                    if cache_flux:                    
-                        self._write_fits(fitsfile, overwrite=True)
-                        self.is_cached = True
+        Parameters
+        ----------
+        n : int or float
+            Input for computing n factorial.
 
-        # Integrate over energy to get L(t).                    
-        for flavor in ThreeFlavor:                    
-            self.luminosity[flavor] = np.sum(self.dLdE[flavor] * self.dE[flavor][:, :, np.newaxis], axis=1)       
+        Returns
+        -------
+        factorial : float
+            Factorial n!, computed as Gamma(n+1).
+        """
+        return gamma(n + 1.)
 
+    @staticmethod
+    def _real_sph_harm(l, m, theta, phi):
+        """Compute orthonormalized real (tesseral) spherical harmonics Y_lm.
+
+        Parameters
+        ----------
+        l : int
+            Degree of the spherical harmonics.
+        m : int
+            Order of the spherical harmonics.
+        theta : float or ndarray
+            Input zenith angles.
+        phi : float or ndarray
+            Input azimuth angles.
+
+        Returns
+        -------
+        Y_lm : float or ndarray
+            Real-valued spherical harmonic function at theta, phi.
+        """
+        if m < 0:
+            norm = np.sqrt((2*l + 1.)/(2*np.pi)*Fornax_2019._fact(l + m)/Fornax_2019._fact(l - m))
+            return norm * lpmv(-m, l, np.cos(theta)) * np.sin(-m*phi)
+        elif m == 0:
+            norm = np.sqrt((2*l + 1.)/(4*np.pi))
+            return norm * lpmv(0, l, np.cos(theta)) * np.ones_like(phi)
+        else:
+            norm = np.sqrt((2*l + 1.)/(2*np.pi)*Fornax_2019._fact(l - m)/Fornax_2019._fact(l + m))
+            return norm * lpmv(m, l, np.cos(theta)) * np.cos(m*phi)
 
     def _read_fits(self, filename):
         """Read cached angular data from FITS.
@@ -444,50 +530,6 @@ class Fornax_2019(SupernovaModel):
             hx.append(hdu_flux)
 
         hx.writeto(filename, overwrite=overwrite)
-
-    def _fact(self, n):
-        """Calculate n!.
-
-        Parameters
-        ----------
-        n : int or float
-            Input for computing n factorial.
-
-        Returns
-        -------
-        factorial : float
-            Factorial n!, computed as Gamma(n+1).
-        """
-        return gamma(n + 1.)
-
-    def _real_sph_harm(self, l, m, theta, phi):
-        """Compute orthonormalized real (tesseral) spherical harmonics Y_lm.
-
-        Parameters
-        ----------
-        l : int
-            Degree of the spherical harmonics.
-        m : int
-            Order of the spherical harmonics.
-        theta : float or ndarray
-            Input zenith angles.
-        phi : float or ndarray
-            Input azimuth angles.
-
-        Returns
-        -------
-        Y_lm : float or ndarray
-            Real-valued spherical harmonic function at theta, phi.
-        """
-        if m < 0:
-            norm = np.sqrt((2*l + 1.)/(2*np.pi)*self._fact(l + m)/self._fact(l - m))
-            return norm * lpmv(-m, l, np.cos(theta)) * np.sin(-m*phi)
-        elif m == 0:
-            norm = np.sqrt((2*l + 1.)/(4*np.pi))
-            return norm * lpmv(0, l, np.cos(theta)) * np.ones_like(phi)
-        else:
-            norm = np.sqrt((2*l + 1.)/(2*np.pi)*self._fact(l - m)/self._fact(l + m))
-            return norm * lpmv(m, l, np.cos(theta)) * np.cos(m*phi)
 
     def _get_binnedspectra(self, t, theta, phi):
         """Get binned neutrino spectrum at a particular time.
