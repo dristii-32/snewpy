@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,8 @@ name = "snewpy"
 dynamic = ["version"]
 description = "A Python package for working with supernova neutrinos"
 authors = [{ name = "SNEWS Collaboration", email = "snews2.0@lists.bnl.gov" }]
-license = { text = "BSD" }
+license = "BSD-3-Clause"
+license-files = ["LICEN[CS]E*"]
 readme = {file = "README.md", content-type = "text/markdown"}
 
 requires-python = ">=3.9"
