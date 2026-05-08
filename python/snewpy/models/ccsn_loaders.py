@@ -557,14 +557,14 @@ class Fornax_2019(SupernovaModel):
         binspec = {}
 
         # Convert input time to a time index.
-        t = t.to(self.time.unit)
-        j = (np.abs(t - self.time)).argmin()
+        t = np.atleast_1d(t).to(self.time.unit)
+        j = np.array([np.abs(t_j - self.time).argmin() for t_j in t])
         k = hp.ang2pix(self.nside, theta.to_value('radian'), phi.to_value('radian'))        
 
         for flavor in ThreeFlavor:
             E[flavor] = self.E[flavor][j]
             dE[flavor] = self.dE[flavor][j]
-            binspec[flavor] = self.dLdE[flavor][j, :, k]
+            binspec[flavor] = self.dLdE[flavor][j,:,k]
 
         return E, dE, binspec
         
@@ -605,7 +605,8 @@ class Fornax_2019(SupernovaModel):
 
         # Avoid "division by zero" in retrieval of the spectrum.
         E[E == 0] = np.finfo(float).eps * E.unit
-        logE = np.log10(E.to_value('MeV'))
+        logE = np.atleast_1d(np.log10(E.to_value('MeV')))
+        logeps = np.log10(np.finfo(float).eps * E.unit / u.MeV)
 
         for flavor in flavors:
 
@@ -614,15 +615,21 @@ class Fornax_2019(SupernovaModel):
                 # Pad log(E) array with values where flux is fixed to zero.
                 _logE = np.log10(_E[flavor].to_value('MeV'))
                 _dlogE = np.diff(_logE)
-                _logEbins = np.insert(_logE, 0, np.log10(np.finfo(float).eps * E.unit/u.MeV))
-                _logEbins = np.append(_logEbins, _logE[-1] + _dlogE[-1])
 
-                # Pad with values where flux is fixed to zero.
-                _dLdE = _spec[flavor].to_value(self.dLdE_unit)
-                _dLdE = np.insert(_dLdE, 0, 0.)
-                _dLdE = np.append(_dLdE, 0.)
+                # Set up energy bin edges
+                nt, nene = _E[flavor].shape
+                _logEbins = np.full((nt, nene+2), logeps)
+                _logEbins[:, 1:-1] = _logE
+                _logEbins[:,-1] = _logE[:,-1] + _dlogE[:,-1]
 
-                initial_spectra[flavor] = np.interp(logE, _logEbins, _dLdE) * self.dLdE_unit / E
+                # Pad spectrum with values where flux is fixed to zero:
+                _dLdE = np.full((nt, nene+2), 0.)
+                _dLdE[:, 1:-1] = _spec[flavor].to_value(self.dLdE_unit)
+
+                initial_spectra[flavor] = []
+                for i in range(nt):
+                    initial_spectra[flavor].append(np.interp(logE, _logEbins[i], _dLdE[i]) * (self.dLdE_unit / E).to('1/(MeV*s)'))
+                initial_spectra[flavor] = np.vstack(initial_spectra[flavor])
 
             elif interpolation.lower() == 'nearest':
                 _logE = np.log10(_E[flavor].to_value('MeV'))
