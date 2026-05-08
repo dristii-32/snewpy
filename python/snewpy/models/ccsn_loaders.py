@@ -413,7 +413,7 @@ class Fornax_2019(SupernovaModel):
                 for l in range(3):
                     for m in range(-l, l+1):
                         dLdE_ij += h5data[key][f'g{j}'][f'l={l} m={m}'][i] * Ylm[l][m]
-                dLdE[i][j] = dLdE_ij
+                dLdE[i][j] = np.abs(dLdE_ij)
 
         # Set up proper units and correct for the nu_x factor
         factor = 1. if flavor.is_electron else 0.25
@@ -647,6 +647,7 @@ class Fornax_2019(SupernovaModel):
                 for i in range(nt):
                     idx = np.digitize(E, _Ebins[i])
                     idx[idx > 0] -= 1
+                    idx[idx >= nene] = nene-1
                     initial_spectra[flavor].append((_spec[flavor][i][idx] / E).to('1/(MeV*s)'))
                 initial_spectra[flavor] = np.vstack(initial_spectra[flavor])
 
