@@ -631,21 +631,26 @@ class Fornax_2019(SupernovaModel):
                     initial_spectra[flavor].append(np.interp(logE, _logEbins[i], _dLdE[i]) * (self.dLdE_unit / E).to('1/(MeV*s)'))
                 initial_spectra[flavor] = np.vstack(initial_spectra[flavor])
 
+            # Nearest point interpolation
             elif interpolation.lower() == 'nearest':
                 _logE = np.log10(_E[flavor].to_value('MeV'))
-                _dlogE = np.diff(_logE)[0]
-                _logEbins = _logE - _dlogE
-                _logEbins = np.concatenate((_logEbins, [_logE[-1] + _dlogE]))
-                _Ebins = 10**_logEbins
+                _dlogE = np.diff(_logE)[:,0]
 
-                idx = np.searchsorted(_Ebins, E) - 1
-                select = (idx > 0) & (idx < len(_E[flavor]))
+                # Set up energy bin edges
+                nt, nene = _E[flavor].shape
+                _logEbins = np.full((nt, nene+1), 0.)
+                _logEbins[:, :-1] = _logE - 0.5*_dlogE[:,np.newaxis]
+                _logEbins[:, -1] = _logE[:,-1] + 0.5*_dlogE
+                _Ebins = 10**_logEbins * u.MeV
 
-                _dLdE = np.zeros(len(E))
-                _dLdE[np.where(select)] = np.asarray([_spec[flavor][i].to_value(self.dLdE_unit) for i in idx[select]])
-                
-                initial_spectra[flavor] = _dLdE * self.dLdE_unit / E
+                initial_spectra[flavor] = []
+                for i in range(nt):
+                    idx = np.digitize(E, _Ebins[i])
+                    idx[idx > 0] -= 1
+                    initial_spectra[flavor].append((_spec[flavor][i][idx] / E).to('1/(MeV*s)'))
+                initial_spectra[flavor] = np.vstack(initial_spectra[flavor])
 
+            # Unrecognized interpolation
             else:
                 raise ValueError('Unrecognized interpolation type "{}"'.format(interpolation))
 
