@@ -413,7 +413,7 @@ class Fornax_2019(SupernovaModel):
                 for l in range(3):
                     for m in range(-l, l+1):
                         dLdE_ij += h5data[key][f'g{j}'][f'l={l} m={m}'][i] * Ylm[l][m]
-                dLdE[i][j] = dLdE_ij
+                dLdE[i][j] = np.abs(dLdE_ij)
 
         # Set up proper units and correct for the nu_x factor
         factor = 1. if flavor.is_electron else 0.25
@@ -557,14 +557,14 @@ class Fornax_2019(SupernovaModel):
         binspec = {}
 
         # Convert input time to a time index.
-        t = t.to(self.time.unit)
-        j = (np.abs(t - self.time)).argmin()
+        t = np.atleast_1d(t).to(self.time.unit)
+        j = np.array([np.abs(t_j - self.time).argmin() for t_j in t])
         k = hp.ang2pix(self.nside, theta.to_value('radian'), phi.to_value('radian'))        
 
         for flavor in ThreeFlavor:
             E[flavor] = self.E[flavor][j]
             dE[flavor] = self.dE[flavor][j]
-            binspec[flavor] = self.dLdE[flavor][j, :, k]
+            binspec[flavor] = self.dLdE[flavor][j,:,k]
 
         return E, dE, binspec
         
@@ -605,7 +605,8 @@ class Fornax_2019(SupernovaModel):
 
         # Avoid "division by zero" in retrieval of the spectrum.
         E[E == 0] = np.finfo(float).eps * E.unit
-        logE = np.log10(E.to_value('MeV'))
+        logE = np.atleast_1d(np.log10(E.to_value('MeV')))
+        logeps = np.log10(np.finfo(float).eps * E.unit / u.MeV)
 
         for flavor in flavors:
 
@@ -614,31 +615,43 @@ class Fornax_2019(SupernovaModel):
                 # Pad log(E) array with values where flux is fixed to zero.
                 _logE = np.log10(_E[flavor].to_value('MeV'))
                 _dlogE = np.diff(_logE)
-                _logEbins = np.insert(_logE, 0, np.log10(np.finfo(float).eps * E.unit/u.MeV))
-                _logEbins = np.append(_logEbins, _logE[-1] + _dlogE[-1])
 
-                # Pad with values where flux is fixed to zero.
-                _dLdE = _spec[flavor].to_value(self.dLdE_unit)
-                _dLdE = np.insert(_dLdE, 0, 0.)
-                _dLdE = np.append(_dLdE, 0.)
+                # Set up energy bin edges
+                nt, nene = _E[flavor].shape
+                _logEbins = np.full((nt, nene+2), logeps)
+                _logEbins[:, 1:-1] = _logE
+                _logEbins[:,-1] = _logE[:,-1] + _dlogE[:,-1]
 
-                initial_spectra[flavor] = np.interp(logE, _logEbins, _dLdE) * self.dLdE_unit / E
+                # Pad spectrum with values where flux is fixed to zero:
+                _dLdE = np.full((nt, nene+2), 0.)
+                _dLdE[:, 1:-1] = _spec[flavor].to_value(self.dLdE_unit)
 
+                initial_spectra[flavor] = []
+                for i in range(nt):
+                    initial_spectra[flavor].append(np.interp(logE, _logEbins[i], _dLdE[i]) * (self.dLdE_unit / E).to('1/(MeV*s)'))
+                initial_spectra[flavor] = np.vstack(initial_spectra[flavor])
+
+            # Nearest point interpolation
             elif interpolation.lower() == 'nearest':
                 _logE = np.log10(_E[flavor].to_value('MeV'))
-                _dlogE = np.diff(_logE)[0]
-                _logEbins = _logE - _dlogE
-                _logEbins = np.concatenate((_logEbins, [_logE[-1] + _dlogE]))
-                _Ebins = 10**_logEbins
+                _dlogE = np.diff(_logE)[:,0]
 
-                idx = np.searchsorted(_Ebins, E) - 1
-                select = (idx > 0) & (idx < len(_E[flavor]))
+                # Set up energy bin edges
+                nt, nene = _E[flavor].shape
+                _logEbins = np.full((nt, nene+1), 0.)
+                _logEbins[:, :-1] = _logE - 0.5*_dlogE[:,np.newaxis]
+                _logEbins[:, -1] = _logE[:,-1] + 0.5*_dlogE
+                _Ebins = 10**_logEbins * u.MeV
 
-                _dLdE = np.zeros(len(E))
-                _dLdE[np.where(select)] = np.asarray([_spec[flavor][i].to_value(self.dLdE_unit) for i in idx[select]])
-                
-                initial_spectra[flavor] = _dLdE * self.dLdE_unit / E
+                initial_spectra[flavor] = []
+                for i in range(nt):
+                    idx = np.digitize(E, _Ebins[i])
+                    idx[idx > 0] -= 1
+                    idx[idx >= nene] = nene-1
+                    initial_spectra[flavor].append((_spec[flavor][i][idx] / E).to('1/(MeV*s)'))
+                initial_spectra[flavor] = np.vstack(initial_spectra[flavor])
 
+            # Unrecognized interpolation
             else:
                 raise ValueError('Unrecognized interpolation type "{}"'.format(interpolation))
 
