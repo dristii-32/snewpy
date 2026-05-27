@@ -139,7 +139,11 @@ def generate_fluence(model_path, model_type, transformation_type, d, output_file
     str
         Path of NumPy archive file with neutrino fluence data.
     """
-    model_class = getattr(snewpy.models.ccsn_loaders, model_type)
+    try:
+        model_class = getattr(snewpy.models.ccsn_loaders, model_type)
+    except AttributeError as e:
+        logging.warn(e)
+        model_class = getattr(snewpy.models.ccsn, model_type)
 
     # Choose flavor transformation. Use dict to associate the transformation name with its class.
     NMO = MixingParameters('NORMAL')
