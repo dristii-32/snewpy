@@ -244,7 +244,7 @@ class Kuroda_2020(loaders.Kuroda_2020):
         return super().__init__(filename, self.metadata)
 
 @RegistryModel(
-    progenitor_mass=[9, 10, 12, 13, 14, 15, 16, 19, 25, 60] * u.Msun,
+    progenitor_mass=[9, 10, 12, 13, 14, 15, 19, 25, 60] * u.Msun,
 )
 class Fornax_2019(loaders.Fornax_2019):
     """Model based on 3D simulations from D. Vartanyan, A. Burrows, D. Radice, M.  A. Skinner and J. Dolence, MNRAS 482(1):351, 2019.

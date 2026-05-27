@@ -80,7 +80,7 @@ class SnowglobesData:
             self._load_smearing_matrices(self.base_dir/'smear')
 
     def _load_detectors(self, path:Path, detectors:str):
-        df = pd.read_table(path, names=['name', 'mass', 'factor'], sep='\s+', comment='#')
+        df = pd.read_table(path, names=['name', 'mass', 'factor'], sep=r'\s+', comment='#')
         df['tgt_mass']=df.mass*df.factor
 
         if detectors == 'all':
@@ -105,11 +105,11 @@ class SnowglobesData:
             if l.startswith('%'):
                 # Format 1: explicit binning, same for all channels
                 tokens = l.split()[1:]
-                df = pd.read_table(f, sep='\s+', index_col=1, comment='%', names=['name','n','parity','flavor','weight'])
+                df = pd.read_table(f, sep=r'\s+', index_col=1, comment='%', names=['name','n','parity','flavor','weight'])
             elif l.startswith('SN_nu'):
                 # Format 2: explicit binning, differs per channel
                 tokens = l.split()[6:]
-                df = pd.read_table(f, sep='\s+', index_col=1, comment='%', names=['name','n','parity','flavor','weight'], usecols=range(1,6))              
+                df = pd.read_table(f, sep=r'\s+', index_col=1, comment='%', names=['name','n','parity','flavor','weight'], usecols=range(1,6))              
                 # drop coherent scattering channels if material is argon_400bins, mixing channels which have different binning
                 if material=='argon_400bins':
                     df = df[df["name"].str.contains('_coh') == False]
@@ -117,7 +117,7 @@ class SnowglobesData:
             else:
                 # Format 3: no binning specified, use SNOwGLoBES default values
                 tokens = '% 200 0.0005 0.100 200 0.0005 0.100'.split()[1:]
-                df = pd.read_table(f, sep='\s+', index_col=1, comment='%', names=['name','n','parity','flavor','weight'])
+                df = pd.read_table(f, sep=r'\s+', index_col=1, comment='%', names=['name','n','parity','flavor','weight'])
 
             self.channels[material] = df
 
