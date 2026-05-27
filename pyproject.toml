@@ -15,7 +15,7 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "scipy",
-    "astropy",
+    "astropy >= 4.3",
     "pandas",
     "tqdm",
     "matplotlib",
