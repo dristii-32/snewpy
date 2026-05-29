@@ -193,7 +193,8 @@ class Myers_2026(SupernovaModel):
     _T_CC_RE = re.compile(r"t_cc\s*=\s*([-+0-9.eE]+)") # regex pattern to find t_cc in header of files
 
 
-    def __init__(self, filename, metadata={}):                                                             
+    def __init__(self, filename, metadata={}):         
+                                                                                                       
         datafile = self.request_file(filename)    
         with zipfile.ZipFile(datafile) as zf:
             beta_names = sorted(n for n in zf.namelist()                                                                                                                     
@@ -206,8 +207,9 @@ class Myers_2026(SupernovaModel):
             pair = {self._profile(n): self._read_snapshot(zf, n) for n in pair_names}  
 
  
-        profiles = sorted(beta.keys() & pair.keys(), key=lambda k: beta[k][0])  # sort by t_cc, make sure to align across beta and pair processes                                                                                                                                                                    
-        times = np.array([beta[k][0] for k in profiles])                                                                                                      
+        profiles = sorted(beta.keys() & pair.keys(), key=lambda k: beta[k][0])  # sort by t_cc, make sure to align across beta and pair processes
+        profiles = [k for k in profiles if beta[k][0] >= -1000]  # keep only last 1000 hours before collapse
+        times = np.array([beta[k][0] for k in profiles])
         energies = np.array(beta[profiles[0]][1]) # all profiles have the same energy grid, just take the first                                                                                                                                                                       
 
         nu_e      = np.stack([beta[k][2][:, 0] + pair[k][2][:, 0] for k in profiles])  # (nT, nE)
@@ -220,9 +222,9 @@ class Myers_2026(SupernovaModel):
         dNdEdT = np.stack([nu_e, nu_e_bar, nu_mu, nu_mu_bar, nu_tau, nu_tau_bar], axis=0)
 
         self.interpolated = _interp_TE(
-            times, energies, dNdEdT, ax_t=1, ax_e=2
+            np.abs(times), energies, dNdEdT, ax_t=1, ax_e=2
         )
-        super().__init__(-times << u.hour, metadata)
+        super().__init__(times << u.hour, metadata)
 
     @classmethod
     def _read_snapshot(cls, zf, name):                                                                                                                                            
