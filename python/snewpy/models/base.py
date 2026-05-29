@@ -17,15 +17,37 @@ from functools import wraps
 from snewpy import flux
 from pathlib import Path
 
+
 def _wrap_init(init, check):
     @wraps(init)
     def _wrapper(self, *arg, **kwargs):
         init(self, *arg, **kwargs)
         check(self)
     return _wrapper
+
+
+def get_value(x):
+    """If quantity x has is an astropy Quantity with units, return just the
+    value.
+
+    Parameters
+    ----------
+    x : Quantity, float, or ndarray
+        Input quantity.
+
+    Returns
+    -------
+    value : float or ndarray
     
-class SupernovaModel(ABC, LocalFileLoader):
-    """Base class defining an interface to a supernova model."""
+    :meta private:
+    """
+    if type(x) == Quantity:
+        return x.value
+    return x
+
+
+class SupernovaModelBase(ABC, LocalFileLoader):
+    """Base class defining an common components of a supernova model."""
 
     def __init_subclass__(cls, **kwargs):
         """Hook to modify the subclasses on creation"""
@@ -97,6 +119,10 @@ class SupernovaModel(ABC, LocalFileLoader):
             Snapshot times from the simulation
         """
         return self.time
+
+    
+class SupernovaModel(SupernovaModelBase):
+    """Base class defining an interface to a supernova model where flavor transformation has not already been applied."""
 
     @abstractmethod
     def _get_initial_spectra_dict(t, E, flavors=ThreeFlavor)->dict:
@@ -183,26 +209,73 @@ class SupernovaModel(ABC, LocalFileLoader):
         factor = 1/(4*np.pi*(distance.to('cm'))**2)
         
         return transformed_spectra*factor
+        
 
+class TransformedSupernovaModel(SupernovaModelBase):
+    """Base class defining an interface to a supernova model where flavor transformation has already been applied."""
 
-def get_value(x):
-    """If quantity x has is an astropy Quantity with units, return just the
-    value.
+    def _get_transformed_spectra_dict(t, E, flavors=ThreeFlavor)->dict:
+        """Get neutrino spectra at the source.
 
-    Parameters
-    ----------
-    x : Quantity, float, or ndarray
-        Input quantity.
+        Parameters
+        ----------
+        t : astropy.Quantity
+            Time to evaluate initial spectra.
+        E : astropy.Quantity 
+            Energies to evaluate the initial spectra.
 
-    Returns
-    -------
-    value : float or ndarray
-    
-    :meta private:
-    """
-    if type(x) == Quantity:
-        return x.value
-    return x
+        Returns
+        -------
+        dict
+            The transformed neutrino spectra, keyed by the flavor
+        """
+        pass
+        
+    def get_transformed_spectra(self, t, E):
+        """Get neutrino spectra at the source.
+
+        Parameters
+        ----------
+        t : astropy.Quantity
+            Time to evaluate initial spectra.
+        E : astropy.Quantity 
+            Energies to evaluate the initial spectra.
+
+        Returns
+        -------
+        flux.Container 
+            A container with the information about the transformed neutrino spectra
+        """
+        spectra_dict = self._get_transformed_spectra_dict(t, E, flavors=ThreeFlavor)
+        transformed_spectra =  flux.Container['1/(MeV*s)'].from_dict(spectra_dict, 
+                                                                     time=t,
+                                                                     energy=E,
+                                                                     flavor_scheme=ThreeFlavor)
+        return transformed_spectra                                                                                                     
+
+    def get_flux (self, t, E, distance):
+        """Get neutrino flux through 1cm^2 surface at the given distance
+
+        Parameters
+        ----------
+        t : astropy.Quantity
+            Time to evaluate the neutrino spectra.
+        E : astropy.Quantity or ndarray of astropy.Quantity
+            Energies to evaluate the the neutrino spectra.
+        distance : astropy.Quantity or float (in kpc)
+            Distance from supernova.
+
+        Returns
+        -------
+        flux.Container 
+            A container with the information about the neutrino flux
+        """
+        transformed_spectra = self.get_transformed_spectra(t, E)
+        distance = distance << u.kpc #assume that provided distance is in kpc, or convert
+        factor = 1/(4*np.pi*(distance.to('cm'))**2)
+        
+        return transformed_spectra*factor
+
 
 class PinchedModel(SupernovaModel):
     """Subclass that contains spectra/luminosity pinches"""
