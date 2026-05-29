@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from astropy import units as u
-from snewpy.models.base import SupernovaModel
+from snewpy.models.base import SupernovaModel, TransformedSupernovaModel
 from snewpy.flavor import ThreeFlavor
 from pathlib import Path
 
