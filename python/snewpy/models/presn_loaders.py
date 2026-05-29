@@ -32,6 +32,7 @@ def _interp_TE(times, energies, array, ax_t=1, ax_e=2):
         return a_te
 
     return _f
+    
 
 class Odrzywolek_2010(SupernovaModel):
     """Set up a presupernova model, based on 
@@ -107,8 +108,9 @@ class Patton_2017(SupernovaModel):
         E = np.array(E.to_value("MeV"), ndmin=1)
         flux = self.interpolated(t, E) / (u.MeV * u.s)
         return {f: flux[f] for f in flavors}
+        
 
-class Kato_2017(SupernovaModel):
+class Kato_2017(TransformedSupernovaModel):
     """Set up a presupernova model based on 
     [Chinami Kato et al 2017 ApJ 848 48]
     """
@@ -138,11 +140,12 @@ class Kato_2017(SupernovaModel):
         )
         super().__init__(-times << u.s, metadata)
 
-    def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
+    def _get_transformed_spectra_dict(self, t, E, flavors=ThreeFlavor):
         t = np.array(-t.to_value("s"), ndmin=1)
         E = np.array(E.to_value("MeV"), ndmin=1)
         flux = self.interpolated(t, E) / (u.MeV * u.s)
         return {f: flux[f] for f in flavors}
+        
 
 class Yoshida_2016(SupernovaModel):
     """Set up a presupernova model based on 
