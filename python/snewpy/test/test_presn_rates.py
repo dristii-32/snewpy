@@ -27,7 +27,7 @@ def test_presn_rate(model_class, transformation, detector):
 
 @pytest.mark.parametrize('model_class',[presn.Kato_2017])
 @pytest.mark.parametrize('detector', ["wc100kt30prct"])
-def test_presn_rate(model_class, transformation, detector):
+def test_presn_rate(model_class, detector):
     model = model_class(progenitor_mass=15*u.Msun)
     flux = model.get_flux(T, E, distance=distance)
     rate = rc.run(flux, detector='scint20kt', detector_effects=False)['ibd']
