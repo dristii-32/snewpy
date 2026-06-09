@@ -833,6 +833,9 @@ class Fornax_2024(Fornax_2021):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
+        #extra parameters
+        self.interpolation = 'linear' #Scheme to interpolate in spectra ('nearest', 'linear')
+
         # Open the requested filename using the model downloader.
         datafile = self.request_file(filename)
         # Set up model metadata.
