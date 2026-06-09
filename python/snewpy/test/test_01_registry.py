@@ -5,11 +5,14 @@ import unittest
 
 from snewpy.flavor import ThreeFlavor
 from snewpy.flavor_transformation import NoTransformation
-from snewpy.models.ccsn import Nakazato_2013, Tamborra_2014, OConnor_2013, OConnor_2015, \
-                          Sukhbold_2015, Bollig_2016, Walk_2018, \
-                          Walk_2019, Fornax_2019, Warren_2020, \
-                          Kuroda_2020, Fornax_2021, Zha_2021, \
-                          Fornax_2022, Mori_2023, Bugli_2021, Fischer_2020
+from snewpy.models.ccsn import Nakazato_2013, OConnor_2013, Tamborra_2014, \
+                          OConnor_2015, Sukhbold_2015, \
+                          Bollig_2016, Walk_2018, \
+                          Walk_2019, Fornax_2019, \
+                          Fischer_2020, Kuroda_2020, Warren_2020, \
+                          Bugli_2021, Fornax_2021, Zha_2021, \
+                          Fornax_2022, \
+                          Mori_2023, Fornax_2024
 from snewpy import flux
 
 from astropy import units as u
@@ -35,6 +38,7 @@ class TestModels(unittest.TestCase):
                   Zha_2021,
                   Fornax_2022,
                   Mori_2023,
+                  Fornax_2024,
                   ]
 
         for model in models:
@@ -388,6 +392,7 @@ class TestModels(unittest.TestCase):
             # Check that we can compute flux dictionaries.
             self.check_model_spectra(model)
 
+
     def test_Mori_2023(self):
         """
         Instantiate a set of 'Mori 2023' models
@@ -410,6 +415,26 @@ class TestModels(unittest.TestCase):
 
             self.assertEqual(model.metadata['Progenitor mass'], 20*u.Msun)
             self.assertEqual(model.metadata['PNS mass'], mpns)
+
+            # Check that times are in proper units.
+            t = model.get_time()
+            self.assertTrue(t.unit, u.s)
+
+            # Check that we can compute flux dictionaries.
+            self.check_model_spectra(model)
+
+    def test_Fornax_2024(self):
+        """
+        Instantiate a set of 'Fornax 2021' models
+        """
+        masses = [ 8.1,  9.,  9.25,  9.5,  9.6, 11., 12.25, 14., 15.01,
+                  16.5, 16., 17.,   18.,  18.5, 19., 19.56, 20., 21.68,
+                  23.,  24., 25.,   40.,  60.,  100.] << u.Msun
+
+        for mass in masses:
+            model = Fornax_2024(progenitor_mass=mass)
+
+            self.assertEqual(model.metadata['Progenitor mass'], mass)
 
             # Check that times are in proper units.
             t = model.get_time()
