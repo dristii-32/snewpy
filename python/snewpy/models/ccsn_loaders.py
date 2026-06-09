@@ -850,12 +850,14 @@ class Fornax_2024(Fornax_2021):
         self.luminosity = {}
         self._E = {}
         self._dLdE = {}
-        for flavor in Flavor:
+        for flavor in ThreeFlavor:
             # Convert flavor to key name in the model HDF5 file
-            key = {Flavor.NU_E: 'nu0',
-                   Flavor.NU_E_BAR: 'nu1',
-                   Flavor.NU_X: 'nu2',
-                   Flavor.NU_X_BAR: 'nu2'}[flavor]
+            key = {ThreeFlavor.NU_E: 'nu0',
+                   ThreeFlavor.NU_E_BAR: 'nu1',
+                   ThreeFlavor.NU_MU: 'nu2',
+                   ThreeFlavor.NU_MU_BAR: 'nu2',
+                   ThreeFlavor.NU_TAU: 'nu2',
+                   ThreeFlavor.NU_TAU_BAR: 'nu2'}[flavor]
 
             self._E[flavor] = np.asarray(_h5file[key]['egroup'])
             self._dLdE[flavor] = {f"g{i}": np.asarray(_h5file[key][f'g{i}']) for i in range(12)}
