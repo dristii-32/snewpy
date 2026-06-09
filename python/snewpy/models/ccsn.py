@@ -329,7 +329,7 @@ _fornax_2024_progenitors = [
 _fornax_2024_masses = [float(re.sub('[A-Za-z]', '', p)) for p in _fornax_2024_progenitors] << u.Msun
 
 
-@RegistryModel(progenitor_mass = _fornax_2022_masses )
+@RegistryModel(progenitor_mass = _fornax_2024_masses )
 class Fornax_2024(loaders.Fornax_2024):
     """Model based on 3D simulations of 25 progenitors using the Fornax code.
        Data available at https://www.astro.princeton.edu/~burrows/nu-emissions.3d.update/
