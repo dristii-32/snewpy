@@ -19,27 +19,97 @@ There are three basic steps to using SNOwGLoBES from SNEWPY:
     The output tables allow to build the detected neutrino energy spectrum and neutrino time distribution, for each reaction channel or the sum of them.
 """
 
+from inspect import isclass
 import logging
 import os
 import re
 import tarfile
+import importlib
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from warnings import warn
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from astropy import units as u
-from warnings import warn
 
 import snewpy.models
 from snewpy.flavor_transformation import *
-from snewpy.neutrino import MassHierarchy
+from snewpy.neutrino import MassHierarchy, MixingParameters
 from snewpy.rate_calculator import RateCalculator, center
 from snewpy.flux import Container
 logger = logging.getLogger(__name__)
 
-def generate_time_series(model_path, model_type, transformation_type, d, output_filename=None, ntbins=30, deltat=None, snmodel_dict={}):
+def _get_transformation(flavor_transformation: str):
+    """Identify the flavor transformation from a string
+
+    Parameters
+    ---------
+    flavor_transformation : str
+        Name of the flavor transformation
+
+    Returns
+    -------
+    FlavorTransformation object initialized with default parameters
+    """
+
+    IMO_mix_params = MixingParameters(MassHierarchy.INVERTED)
+    NMO_mix_params = MixingParameters(MassHierarchy.NORMAL) 
+    
+    warn("Using a string to specify the flavor transformation is deprecated. Please use a `FlavorTransformation` instance instead.", DeprecationWarning, stacklevel=3)
+    if flavor_transformation.startswith(('NeutrinoDecay', 'QuantumDecoherence')):
+        print(f"Using default parameters for {flavor_transformation} transformation. Use a `FlavorTransformation` instance to specify custom parameters.")
+
+    # Choose flavor transformation. Use dict to associate the transformation name with its class.
+    # The default mixing paramaters are the normal hierarchy values
+    flavor_transformation_dict = {'NoTransformation': NoTransformation(), 
+                                  'CompleteExchange': CompleteExchange(),                                
+                                  'AdiabaticMSW_NMO': AdiabaticMSW(NMO_mix_params), 
+                                  'AdiabaticMSW_IMO': AdiabaticMSW(IMO_mix_params), 
+                                  'NonAdiabaticMSWH_NMO': NonAdiabaticMSWH(NMO_mix_params), 
+                                  'NonAdiabaticMSWH_IMO': NonAdiabaticMSWH(IMO_mix_params), 
+                                  'TwoFlavorDecoherence': TwoFlavorDecoherence(NMO_mix_params), 
+                                  'TwoFlavorDecoherence_NMO': TwoFlavorDecoherence(NMO_mix_params), 
+                                  'TwoFlavorDecoherence_IMO': TwoFlavorDecoherence(IMO_mix_params), 
+                                  'ThreeFlavorDecoherence': ThreeFlavorDecoherence(NMO_mix_params),
+                                  'NeutrinoDecay_NMO': NeutrinoDecay(NMO_mix_params), 
+                                  'NeutrinoDecay_IMO': NeutrinoDecay(IMO_mix_params), 
+                                  'QuantumDecoherence_NMO': QuantumDecoherence(NMO_mix_params), 
+                                  'QuantumDecoherence_IMO': QuantumDecoherence(IMO_mix_params),
+                                  }
+
+    try:
+        return flavor_transformation_dict[flavor_transformation]
+    except KeyError:
+        raise ValueError(f"Flavor transformation '{flavor_transformation}' not found.")
+
+def _get_model_class(model_type: str):
+    """Look up model class corresponding to the given model name.
+
+    Parameters
+    ---------
+    model_type : str
+        Model name
+
+    Returns
+    -------
+    Model class corresponding to the given model name
+    """    
+    models_dict = {}
+    modules_list = ["snewpy.models.base", "snewpy.models.ccsn", "snewpy.models.ccsn_loaders",
+                    "snewpy.models.extended", "snewpy.models.presn", "snewpy.models.presn_loaders"]
+    for module_name in modules_list:
+        module = importlib.import_module(module_name)
+        models_dict.update({k:v for k,v in vars(module).items() if isclass(v)})
+
+    try:
+        return models_dict[model_type]
+    except KeyError:
+        raise ValueError(f"Model '{model_type}' not found.")
+
+def generate_time_series(model_path, model_type, flavor_transformation, d, output_filename=None, ntbins=30, deltat=None, snmodel_dict={}):
     """Generate time series files in SNOwGLoBES format.
 
     This version will subsample the times in a supernova model, produce energy
@@ -51,8 +121,8 @@ def generate_time_series(model_path, model_type, transformation_type, d, output_
         Input file containing neutrino flux information from supernova model.
     model_type : str
         Format of input file. Matches the name of the corresponding class in :py:mod:`snewpy.models`.
-    transformation_type : str
-        Name of flavor transformation. See snewpy.flavor_transformation documentation for possible values.
+    flavor_transformation : str or instance of flavor transformation class  
+        If a string, the class is found using the _get_transformation function
     d : int or float
         Distance to supernova in kpc.
     output_filename : str or None
@@ -69,11 +139,11 @@ def generate_time_series(model_path, model_type, transformation_type, d, output_
     str
         Path of NumPy archive file with neutrino fluence data.
     """
-    model_class = getattr(snewpy.models.ccsn, model_type)
+    model_class = _get_model_class(model_type)
 
-    # Choose flavor transformation. Use dict to associate the transformation name with its class.
-    flavor_transformation_dict = {'NoTransformation': NoTransformation(), 'AdiabaticMSW_NMO': AdiabaticMSW(mh=MassHierarchy.NORMAL), 'AdiabaticMSW_IMO': AdiabaticMSW(mh=MassHierarchy.INVERTED), 'NonAdiabaticMSWH_NMO': NonAdiabaticMSWH(mh=MassHierarchy.NORMAL), 'NonAdiabaticMSWH_IMO': NonAdiabaticMSWH(mh=MassHierarchy.INVERTED), 'TwoFlavorDecoherence': TwoFlavorDecoherence(), 'ThreeFlavorDecoherence': ThreeFlavorDecoherence(), 'NeutrinoDecay_NMO': NeutrinoDecay(mh=MassHierarchy.NORMAL), 'NeutrinoDecay_IMO': NeutrinoDecay(mh=MassHierarchy.INVERTED), 'QuantumDecoherence_NMO': QuantumDecoherence(mh=MassHierarchy.NORMAL), 'QuantumDecoherence_IMO': QuantumDecoherence(mh=MassHierarchy.INVERTED)}
-    flavor_transformation = flavor_transformation_dict[transformation_type]
+    # if flavor_transformation is a string, find the appropriate class
+    if isinstance(flavor_transformation, str):
+        flavor_transformation = _get_transformation(flavor_transformation)
 
     model_dir, model_file = os.path.split(os.path.abspath(model_path))
     snmodel = model_class(model_path, **snmodel_dict)
@@ -96,11 +166,12 @@ def generate_time_series(model_path, model_type, transformation_type, d, output_
         tfname = output_filename + '.npz'
     else:
         model_file_root, _ = os.path.splitext(model_file)  # strip extension (if present)
-        tfname = f'{model_file_root}.{transformation_type}.{tmin:.3f},{tmax:.3f},{ntbins:d}-{d:.1f}.npz'
+        tfname = f'{model_file_root}'+str(flavor_transformation)+f'{tmin:.3f},{tmax:.3f},{ntbins:d}-{d:.1f}.npz'
     fluence.save(tfname)
     return tfname
+    
 
-def generate_fluence(model_path, model_type, transformation_type, d, output_filename=None, tstart=None, tend=None, snmodel_dict={}):
+def generate_fluence(model_path, model_type, flavor_transformation, d, output_filename=None, tstart=None, tend=None, snmodel_dict={}):
     """Generate fluence files in SNOwGLoBES format.
 
     This version will subsample the times in a supernova model, produce energy
@@ -112,8 +183,8 @@ def generate_fluence(model_path, model_type, transformation_type, d, output_file
         Input file containing neutrino flux information from supernova model.
     model_type : str
         Format of input file. Matches the name of the corresponding class in :py:mod:`snewpy.models`.
-    transformation_type : str
-        Name of flavor transformation. See snewpy.flavor_transformation documentation for possible values.
+    flavor_transformation : str or instance of flavor transformation class  
+        If a string, the class is found using the _get_transformation function
     d : int or float
         Distance to supernova in kpc.
     output_filename : str or None
@@ -130,11 +201,15 @@ def generate_fluence(model_path, model_type, transformation_type, d, output_file
     str
         Path of NumPy archive file with neutrino fluence data.
     """
-    model_class = getattr(snewpy.models.ccsn, model_type)
+    try:
+        model_class = getattr(snewpy.models.ccsn_loaders, model_type)
+    except AttributeError as e:
+        logging.warn(e)
+        model_class = getattr(snewpy.models.ccsn, model_type)
 
-    # Choose flavor transformation. Use dict to associate the transformation name with its class.
-    flavor_transformation_dict = {'NoTransformation': NoTransformation(), 'AdiabaticMSW_NMO': AdiabaticMSW(mh=MassHierarchy.NORMAL), 'AdiabaticMSW_IMO': AdiabaticMSW(mh=MassHierarchy.INVERTED), 'NonAdiabaticMSWH_NMO': NonAdiabaticMSWH(mh=MassHierarchy.NORMAL), 'NonAdiabaticMSWH_IMO': NonAdiabaticMSWH(mh=MassHierarchy.INVERTED), 'TwoFlavorDecoherence': TwoFlavorDecoherence(), 'ThreeFlavorDecoherence': ThreeFlavorDecoherence(), 'NeutrinoDecay_NMO': NeutrinoDecay(mh=MassHierarchy.NORMAL), 'NeutrinoDecay_IMO': NeutrinoDecay(mh=MassHierarchy.INVERTED), 'QuantumDecoherence_NMO': QuantumDecoherence(mh=MassHierarchy.NORMAL), 'QuantumDecoherence_IMO': QuantumDecoherence(mh=MassHierarchy.INVERTED)}
-    flavor_transformation = flavor_transformation_dict[transformation_type]
+    # if flavor_transformation is a string, find the appropriate class
+    if isinstance(flavor_transformation, str):
+        flavor_transformation = _get_transformation(flavor_transformation)
 
     model_dir, model_file = os.path.split(os.path.abspath(model_path))
     snmodel = model_class(model_path, **snmodel_dict)
@@ -165,12 +240,13 @@ def generate_fluence(model_path, model_type, transformation_type, d, output_file
         tfname = output_filename+'.npz'
     else:
         model_file_root, _ = os.path.splitext(model_file)  # strip extension (if present)
-        tfname = f'{model_file_root}.{transformation_type}.{times[0]:.3f},{times[1]:.3f},{len(times)-1:d}-{d:.1f}.npz'
+        tfname = f'{model_file_root}'+str(flavor_transformation)+f'.{times[0]:.3f},{times[1]:.3f},{len(times)-1:d}-{d:.1f}.npz'
 
     fluence.save(tfname)
     return tfname
 
-def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", verbose=False, *, detector_effects=True):
+
+def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effects=True):
     """Calculate expected event rates for the given neutrino flux files and the given (set of) SNOwGLoBES detector(s).
     These event rates are given as a function of the neutrino energy and time, for each interaction channel.
 
@@ -182,14 +258,9 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", verbose=False, *
         Path of compressed .tar file produced e.g. by ``generate_time_series()`` or ``generate_fluence()``.
     detector_input : str
         Name of detector. If ``"all"``, will use all detectors supported by SNOwGLoBES.
-    verbose : bool
-        [DEPRECATED, DO NOT USE.]
     detector_effects : bool
          Whether to account for detector smearing and efficiency.
     """
-    if verbose:  # Deprecated since SNEWPY v1.2
-        warn(f"The 'verbose' parameter to 'snewpy.snowglobes.simulate()' is deprecated and should not be used.", FutureWarning)
-
     rc = RateCalculator(base_dir=SNOwGLoBESdir)
     if detector_input == 'all':
         detector_input = list(rc.detectors)
@@ -260,23 +331,15 @@ def get_channel_label(c):
     else: 
         return re_chan_label.sub(gen_label, c) 
 
-def collate(SNOwGLoBESdir, tarball_path, detector_input="", skip_plots=False, verbose=False, remove_generated_files=True, *, smearing=True):
+def collate(tarball_path, skip_plots=False, *, smearing=True):
     """Collates SNOwGLoBES output files and generates plots or returns a data table.
 
     Parameters
     ----------
-    SNOwGLoBESdir : str or None
-        [DEPRECATED, DO NOT USE.]
     tarball_path : str
         Path of compressed .tar file produced e.g. by ``generate_time_series()`` or ``generate_fluence()``.
-    detector_input : str
-        [DEPRECATED, DO NOT USE. SNEWPY will use all detectors included in the tarball.]
     skip_plots: bool
         If False, it gives as output the plot of the energy distribution for each time bin and for each interaction channel.
-    verbose : bool
-        [DEPRECATED, DO NOT USE.]
-    remove_generated_files: bool
-        [DEPRECATED, DO NOT USE.]
     smearing: bool
         Also consider results with smearing effects.
 
@@ -285,18 +348,16 @@ def collate(SNOwGLoBESdir, tarball_path, detector_input="", skip_plots=False, ve
     dict
         Dictionary of data tables: One table per time bin; each table contains in the first column the energy bins, in the remaining columns the number of events for each interaction channel in the detector.
     """
-    if verbose:  # Deprecated since SNEWPY v1.2
-        warn(f"The 'verbose' parameter to 'snewpy.snowglobes.collate()' is deprecated and should not be used.", FutureWarning)
-    if detector_input:  # Deprecated since SNEWPY v1.2
-        warn(f"The 'detector_input' parameter to 'snewpy.snowglobes.collate()' is deprecated and should not be used.", FutureWarning)
-    if not remove_generated_files:  # Deprecated since SNEWPY v1.2
-        warn(f"The 'remove_generated_files' parameter to 'snewpy.snowglobes.collate()' is deprecated and should not be used.", FutureWarning)
 
     def aggregate_channels(table, **patterns):
         #rearrange the table to have only channel column
         levels = list(table.columns.names)
         levels.remove('channel')
-        t = table.stack(levels)
+        if pd.__version__ < '2.1':
+            t = table.stack(levels)
+        else:
+            # Avoid FutureWarning, see https://pandas.pydata.org/docs/whatsnew/v2.1.0.html#new-implementation-of-dataframe-stack
+            t = table.stack(levels, future_stack=True)
         for name,pattern in patterns.items():
             #get channels which contain `like`
             t_sel = t.filter(like=pattern)

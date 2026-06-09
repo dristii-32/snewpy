@@ -13,18 +13,18 @@ import tarfile
 from astropy import units as u
 from astropy.table import Table, join
 from astropy.io import ascii, fits
+from astropy_healpix import healpy as hp
+
 import h5py
 import numpy as np
 from scipy.special import gamma, lpmv
 
-try:
-    import healpy as hp
-except ImportError:
-    pass
-
+from snewpy.flux import Spectrum
 from snewpy.models.base import PinchedModel, SupernovaModel
-from snewpy.neutrino import Flavor
+from snewpy.flavor import ThreeFlavor
 from snewpy import _model_downloader
+
+import multiprocessing
 
 class GarchingArchiveModel(PinchedModel):
     """Subclass that reads models in the format used in the
@@ -53,9 +53,8 @@ class GarchingArchiveModel(PinchedModel):
         # Read through the several ASCII files for the chosen simulation and
         # merge the data into one giant table.
         mergtab = None
-        for flavor in Flavor:
-            _flav = Flavor.NU_X if flavor == Flavor.NU_X_BAR else flavor
-            _sfx = _flav.name.replace('_', '').lower()
+        for flavor in ThreeFlavor:
+            _sfx = flavor.name.replace('_', '').lower() if flavor.is_electron else "nux"
             _filename = '{}_{}_{}'.format(filename, eos, _sfx)
             _lname = 'L_{}'.format(flavor.name)
             _ename = 'E_{}'.format(flavor.name)
@@ -272,17 +271,16 @@ class Kuroda_2020(PinchedModel):
 
         # Get grid of model times.
         simtab['TIME'] = simtab['Tpb[ms]'] << u.ms
-        for f in [Flavor.NU_E, Flavor.NU_E_BAR, Flavor.NU_X]:
-            fkey = re.sub('(E|X)_BAR', r'A\g<1>', f.name).lower()
-            simtab[f'L_{f.name}'] = simtab[f'<L{fkey}>'] * 1e51 << u.erg / u.s
-            simtab[f'E_{f.name}'] = simtab[f'<E{fkey}>'] << u.MeV
+        for f in ["NU_E", "NU_E_BAR", "NU_X"]:
+            fkey = re.sub('(E|X)_BAR', r'A\g<1>', f).lower()
+            simtab[f'L_{f}'] = simtab[f'<L{fkey}>'] * 1e51 << u.erg / u.s
+            simtab[f'E_{f}'] = simtab[f'<E{fkey}>'] << u.MeV
             # There is no pinch parameter so use alpha=2.0.
-            simtab[f'ALPHA_{f.name}'] = np.full_like(simtab[f'E_{f.name}'].value, 2.)
+            simtab[f'ALPHA_{f}'] = np.full_like(simtab[f'E_{f}'].value, 2.)
 
         self.filename = os.path.basename(filename)
 
         super().__init__(simtab, metadata)
-
 
 class Fornax_2019(SupernovaModel):
     def __init__(self, filename, metadata={}, cache_flux=False):
@@ -294,179 +292,140 @@ class Fornax_2019(SupernovaModel):
         cache_flux : bool
             If true, pre-compute the flux on a fixed angular grid and store the values in a FITS file.
         """
+        # Open the requested filename using the model downloader.
+        datafile = self.request_file(filename)
+                
         # Set up model metadata.
-        self.filename = filename
+        self.filename = os.path.basename(filename)
         self.metadata = metadata
 
-        self.fluxunit = 1e50 * u.erg/(u.s*u.MeV)
+        self.dLdE_unit = 1e50 * u.erg/(u.s*u.MeV)
         self.time = None
 
-        # Read a cached flux file in FITS format or generate one.
-        self.is_cached = cache_flux and 'healpy' in sys.modules
+        self.E = {}
+        self.dE = {}
+        self.dLdE = {}
+        self.luminosity = {}        
+        
+        self.is_cached = False
+
+        logger = logging.getLogger()        
         if cache_flux and not 'healpy' in sys.modules:
-            logger = logging.getLogger()
             logger.warning("No module named 'healpy'. Cannot enable caching.")
 
-        if self.is_cached:
-
-            self.E = {}
-            self.dE = {}
-            self.dLdE = {}
-            self.luminosity = {}
-
-            # Check if we're initializing on a FITS file or not.
-            if filename.endswith('.fits'):
-                fitsfile = filename
-            else:
-                fitsfile = filename.replace('h5', 'fits')
-
-            if os.path.exists(fitsfile):
-                self._read_fits(fitsfile)
-                ntim, nene, npix = self.dLdE[Flavor.NU_E].shape
-                self.npix = npix
-                self.nside = hp.npix2nside(npix)
-            else:
-                with h5py.File(filename, 'r') as _h5file:
-                    # Conversion of flavor to key name in the model HDF5 file.
-                    self._flavorkeys = {Flavor.NU_E: 'nu0',
-                                        Flavor.NU_E_BAR: 'nu1',
-                                        Flavor.NU_X: 'nu2',
-                                        Flavor.NU_X_BAR: 'nu2'}
-
-                    if self.time is None:
-                        self.time = _h5file['nu0']['g0'].attrs['time'] * u.s
-
-                    # Use a HEALPix grid with nside=4 (192 pixels) to cache the
-                    # values of Y_lm(theta, phi).
-                    self.nside = 4
-                    self.npix = hp.nside2npix(self.nside)
-                    thetac, phic = hp.pix2ang(self.nside, np.arange(self.npix))
-
-                    Ylm = {}
-                    for l in range(3):
-                        Ylm[l] = {}
-                        for m in range(-l, l+1):
-                            Ylm[l][m] = self._real_sph_harm(l, m, thetac, phic)
-
-                    # Store 3D tables of dL/dE for each flavor.
-                    logger = logging.getLogger()
-                    for flavor in Flavor:
-
-                        key = self._flavorkeys[flavor]
-                        logger.info('Caching {} for {} ({})'.format(filename, str(flavor), key))
-
-                        # HDF5 file only contains NU_E, NU_E_BAR, and NU_X.
-                        if flavor == Flavor.NU_X_BAR:
-                            self.E[flavor] = self.E[Flavor.NU_X]
-                            self.dE[flavor] = self.dE[Flavor.NU_X]
-                            self.dLdE[flavor] = self.dLdE[Flavor.NU_X]
-                            self.luminosity[flavor] = self.luminosity[Flavor.NU_X]
-                            continue
-
-                        self.E[flavor] = _h5file[key]['egroup'][()] * u.MeV
-                        self.dE[flavor] = _h5file[key]['degroup'][()] * u.MeV
-
-                        ntim, nene = self.E[flavor].shape
-                        self.dLdE[flavor] = np.zeros((ntim, nene, self.npix), dtype=float)
-                        # Loop over time bins.
-                        for i in range(ntim):
-                            # Loop over energy bins.
-                            for j in range(nene):
-                                dLdE_ij = 0.
-                                # Sum over multipole moments.
-                                for l in range(3):
-                                    for m in range(-l, l+1):
-                                        dLdE_ij += _h5file[key]['g{}'.format(j)
-                                                                ]['l={} m={}'.format(l, m)][i] * Ylm[l][m]
-                                self.dLdE[flavor][i][j] = dLdE_ij
-
-                        # Integrate over energy to get L(t).
-                        factor = 1. if flavor.is_electron else 0.25
-                        self.dLdE[flavor] = self.dLdE[flavor] * factor * self.fluxunit
-                        self.dLdE[flavor] = self.dLdE[flavor].to('erg/(s*MeV)')
-
-                        self.luminosity[flavor] = np.sum(self.dLdE[flavor] * self.dE[flavor][:, :, np.newaxis], axis=1)
-
-                    # Write output to FITS.
-                    self._write_fits(fitsfile, overwrite=True)
+        # Check if we're initializing on a FITS file or not.
+        if filename.endswith('.fits'):
+            fitsfile = filename
         else:
-            # Conversion of flavor to key name in the model HDF5 file.
-            self._flavorkeys = {Flavor.NU_E: 'nu0',
-                                Flavor.NU_E_BAR: 'nu1',
-                                Flavor.NU_X: 'nu2',
-                                Flavor.NU_X_BAR: 'nu2'}
+            fitsfile = filename.replace('h5', 'fits')
 
-            # Open the requested filename using the model downloader.
-            datafile = self.request_file(filename)
-            # Open HDF5 data file.
-            self._h5file = h5py.File(datafile, 'r')
+        # Read a cached flux file in FITS format or generate one.
+        if cache_flux and os.path.exists(fitsfile):
+            self._read_fits(fitsfile)
+            ntim, nene, npix = self.dLdE[Flavor.NU_E].shape
+            self.npix = npix
+            self.nside = hp.npix2nside(npix)
+            self.is_cached = True
+        else:
+            # Load data from HDF5
+            with h5py.File(datafile, 'r') as _h5file:              
+                if self.time is None:
+                    self.time = _h5file['nu0']['g0'].attrs['time'] * u.s
+                h5data = self._load_entire_hdf5(_h5file)
 
-            # Get grid of model times in seconds.
-            self.time = self._h5file['nu0']['g0'].attrs['time'] * u.s
+            # Use a HEALPix grid with nside=4 (192 pixels) to cache the
+            # values of Y_lm(theta, phi).
+            self.nside = 4
+            self.npix = hp.nside2npix(self.nside)
+            thetac, phic = hp.pix2ang(self.nside, np.arange(self.npix))
 
-    def _read_fits(self, filename):
-        """Read cached angular data from FITS.
+            Ylm = {}
+            for l in range(3):
+                Ylm[l] = {}
+                for m in range(-l, l+1):
+                    Ylm[l][m] = Fornax_2019._real_sph_harm(l, m, thetac, phic)
 
-        Parameters
-        ----------
-        filename : str
-            Input filename.
+            # Store 3D tables of dL/dE for each flavor.
+            nproc = len(ThreeFlavor)
+            with multiprocessing.Pool(processes=nproc, initializer=self._init_data, initargs=(h5data, Ylm, self.npix, self.dLdE_unit)) as pool:
+                data = pool.map(self._get_flavor_data, ThreeFlavor)
+
+            for (_flavor, _E, _dE, _dLdE, _lum) in data:
+                self.E[_flavor] = _E
+                self.dE[_flavor] = _dE
+                self.dLdE[_flavor] = _dLdE
+                self.luminosity[_flavor] = _lum
+
+            # Write output to FITS.
+            if cache_flux:
+                self._write_fits(fitsfile, overwrite=True)
+                self.is_cached = True
+
+    @staticmethod
+    def _load_entire_hdf5(dct):
+        """Load full dictionary from HDF5"""
+        if isinstance(dct, h5py.Dataset):
+            return dct[()]
+        ret = {}
+        for k, v in dct.items():
+            ret[k] = Fornax_2019._load_entire_hdf5(v)
+        return ret
+
+    @staticmethod
+    def _flavorkeys(flavor):
+        """Convert flavor to data keys.
         """
-        hdus = fits.open(filename)
+        if flavor == ThreeFlavor.NU_E:
+            return 'nu0'
+        elif flavor == ThreeFlavor.NU_E_BAR:
+            return 'nu1'
+        else:
+            return 'nu2'
 
-        self.time = hdus['TIME'].data * u.Unit(hdus['TIME'].header['BUNIT'])
+    @staticmethod
+    def _init_data(hdf5_data, ylm, npix, dlde_unit):
+        """Variable initializer for the multiprocessing pool."""
+        global h5data
+        global Ylm
+        global Npix
+        global dLdE_unit
+        h5data = hdf5_data
+        Ylm = ylm
+        Npix = npix
+        dLdE_unit = dlde_unit
 
-        for flavor in Flavor:
-            name = str(flavor).split('.')[-1]
+    @staticmethod
+    def _get_flavor_data(flavor):
+        """Function to extract spectra for one flavor from HDF5."""
+        key = Fornax_2019._flavorkeys(flavor)
+        E  = h5data[key]['egroup'] * u.MeV
+        dE = h5data[key]['degroup'] * u.MeV
 
-            ext = '{}_ENERGY'.format(name)
-            self.E[flavor] = hdus[ext].data * u.Unit(hdus[ext].header['BUNIT'])
+        ntim, nene = E.shape
+        dLdE = np.zeros((ntim, nene, Npix), dtype=float)
 
-            ext = '{}_DE'.format(name)
-            self.dE[flavor] = hdus[ext].data * u.Unit(hdus[ext].header['BUNIT'])
+        # Loop over time bins
+        for i in range(ntim):
+            # Loop over energy bins:
+            for j in range(nene):
+                dLdE_ij = 0.
+                # Sum over multipole moments:
+                for l in range(3):
+                    for m in range(-l, l+1):
+                        dLdE_ij += h5data[key][f'g{j}'][f'l={l} m={m}'][i] * Ylm[l][m]
+                dLdE[i][j] = np.abs(dLdE_ij)
 
-            ext = '{}_FLUX'.format(name)
-            self.dLdE[flavor] = hdus[ext].data * u.Unit(hdus[ext].header['BUNIT'])
-            self.dLdE[flavor] = self.dLdE[flavor].to('erg/(s*MeV)')
+        # Set up proper units and correct for the nu_x factor
+        factor = 1. if flavor.is_electron else 0.25
+        dLdE = dLdE * factor * dLdE_unit
 
-            self.luminosity[flavor] = np.sum(self.dLdE[flavor] * self.dE[flavor][:, :, np.newaxis], axis=1)
+        # Integrate over energy to get luminosity
+        L = np.sum(dLdE * dE[:, :, np.newaxis], axis=1)
 
-    def _write_fits(self, filename, overwrite=False):
-        """Write angular-dependent calculated flux in FITS format.
+        return (flavor, E, dE, dLdE, L)
 
-        Parameters
-        ----------
-        filename : str
-            Output filename.
-        """
-        hx = fits.HDUList()
-
-        hdu_time = fits.PrimaryHDU(self.time.to_value('s'))
-        hdu_time.header['EXTNAME'] = 'TIME'
-        hdu_time.header['BUNIT'] = 'second'
-        hx.append(hdu_time)
-
-        for flavor in Flavor:
-            name = str(flavor).split('.')[-1]
-
-            hdu_E = fits.ImageHDU(self.E[flavor].to_value('MeV'))
-            hdu_E.header['EXTNAME'] = '{}_ENERGY'.format(name)
-            hdu_E.header['BUNIT'] = 'MeV'
-            hx.append(hdu_E)
-
-            hdu_dE = fits.ImageHDU(self.dE[flavor].to_value('MeV'))
-            hdu_dE.header['EXTNAME'] = '{}_DE'.format(name)
-            hdu_dE.header['BUNIT'] = 'MeV'
-            hx.append(hdu_dE)
-
-            hdu_flux = fits.ImageHDU(self.dLdE[flavor].to_value(str(self.fluxunit)))
-            hdu_flux.header['EXTNAME'] = '{}_FLUX'.format(name)
-            hdu_flux.header['BUNIT'] = str(self.fluxunit)
-            hx.append(hdu_flux)
-
-        hx.writeto(filename, overwrite=overwrite)
-
-    def _fact(self, n):
+    @staticmethod
+    def _fact(n):
         """Calculate n!.
 
         Parameters
@@ -481,7 +440,8 @@ class Fornax_2019(SupernovaModel):
         """
         return gamma(n + 1.)
 
-    def _real_sph_harm(self, l, m, theta, phi):
+    @staticmethod
+    def _real_sph_harm(l, m, theta, phi):
         """Compute orthonormalized real (tesseral) spherical harmonics Y_lm.
 
         Parameters
@@ -501,14 +461,75 @@ class Fornax_2019(SupernovaModel):
             Real-valued spherical harmonic function at theta, phi.
         """
         if m < 0:
-            norm = np.sqrt((2*l + 1.)/(2*np.pi)*self._fact(l + m)/self._fact(l - m))
+            norm = np.sqrt((2*l + 1.)/(2*np.pi)*Fornax_2019._fact(l + m)/Fornax_2019._fact(l - m))
             return norm * lpmv(-m, l, np.cos(theta)) * np.sin(-m*phi)
         elif m == 0:
             norm = np.sqrt((2*l + 1.)/(4*np.pi))
             return norm * lpmv(0, l, np.cos(theta)) * np.ones_like(phi)
         else:
-            norm = np.sqrt((2*l + 1.)/(2*np.pi)*self._fact(l - m)/self._fact(l + m))
+            norm = np.sqrt((2*l + 1.)/(2*np.pi)*Fornax_2019._fact(l - m)/Fornax_2019._fact(l + m))
             return norm * lpmv(m, l, np.cos(theta)) * np.cos(m*phi)
+
+    def _read_fits(self, filename):
+        """Read cached angular data from FITS.
+
+        Parameters
+        ----------
+        filename : str
+            Input filename.
+        """
+        hdus = fits.open(filename)
+
+        self.time = hdus['TIME'].data * u.Unit(hdus['TIME'].header['BUNIT'])
+
+        for flavor in ThreeFlavor:
+            name = str(flavor).split('.')[-1]
+
+            ext = '{}_ENERGY'.format(name)
+            self.E[flavor] = hdus[ext].data * u.Unit(hdus[ext].header['BUNIT'])
+
+            ext = '{}_DE'.format(name)
+            self.dE[flavor] = hdus[ext].data * u.Unit(hdus[ext].header['BUNIT'])
+
+            ext = '{}_FLUX'.format(name)
+            self.dLdE[flavor] = hdus[ext].data * u.Unit(hdus[ext].header['BUNIT'])
+            self.dLdE[flavor] = self.dLdE[flavor].to('erg/(s*MeV)')
+
+
+    def _write_fits(self, filename, overwrite=False):
+        """Write angular-dependent calculated flux in FITS format.
+
+        Parameters
+        ----------
+        filename : str
+            Output filename.
+        """
+        hx = fits.HDUList()
+
+        hdu_time = fits.PrimaryHDU(self.time.to_value('s'))
+        hdu_time.header['EXTNAME'] = 'TIME'
+        hdu_time.header['BUNIT'] = 'second'
+        hx.append(hdu_time)
+
+        for flavor in ThreeFlavor:
+            name = str(flavor).split('.')[-1]
+
+            hdu_E = fits.ImageHDU(self.E[flavor].to_value('MeV'))
+            hdu_E.header['EXTNAME'] = '{}_ENERGY'.format(name)
+            hdu_E.header['BUNIT'] = 'MeV'
+            hx.append(hdu_E)
+
+            hdu_dE = fits.ImageHDU(self.dE[flavor].to_value('MeV'))
+            hdu_dE.header['EXTNAME'] = '{}_DE'.format(name)
+            hdu_dE.header['BUNIT'] = 'MeV'
+            hx.append(hdu_dE)
+
+            hdu_flux = fits.ImageHDU(self.dLdE[flavor].to_value(str(self.dLdE_unit)))
+            hdu_flux.header['EXTNAME'] = '{}_FLUX'.format(name)
+            hdu_flux.header['BUNIT'] = str(self.dLdE_unit)
+            hx.append(hdu_flux)
+
+        hx.writeto(filename, overwrite=overwrite)
 
     def _get_binnedspectra(self, t, theta, phi):
         """Get binned neutrino spectrum at a particular time.
@@ -536,53 +557,25 @@ class Fornax_2019(SupernovaModel):
         binspec = {}
 
         # Convert input time to a time index.
-        t = t.to(self.time.unit)
-        j = (np.abs(t - self.time)).argmin()
+        t = np.atleast_1d(t).to(self.time.unit)
+        j = np.array([np.abs(t_j - self.time).argmin() for t_j in t])
+        k = hp.ang2pix(self.nside, theta.to_value('radian'), phi.to_value('radian'))        
 
-        for flavor in Flavor:
-            # Cached data: read out the relevant time and angular rows.
-            if self.is_cached:
-                # Convert input angles to a HEALPix index.
-                k = hp.ang2pix(self.nside, theta.to_value('radian'), phi.to_value('radian'))
-                E[flavor] = self.E[flavor][j]
-                dE[flavor] = self.dE[flavor][j]
-                binspec[flavor] = self.dLdE[flavor][j, :, k]
-
-            # Read the HDF5 input file directly and extract the spectra.
-            else:
-                # File only contains NU_E, NU_E_BAR, and NU_X.
-                if flavor == Flavor.NU_X_BAR:
-                    E[flavor] = E[Flavor.NU_X]
-                    dE[flavor] = dE[Flavor.NU_X]
-                    binspec[flavor] = binspec[Flavor.NU_X]
-                    continue
-
-                key = self._flavorkeys[flavor]
-
-                # Energy binning of the model for this flavor, in units of MeV.
-                E[flavor] = self._h5file[key]['egroup'][j] * u.MeV
-                dE[flavor] = self._h5file[key]['degroup'][j] * u.MeV
-
-                # Storage of differential flux per energy, angle, and time.
-                dLdE = np.zeros(len(E[flavor]), dtype=float)
-
-                # Loop over energy bins.
-                for ebin in range(len(E[flavor])):
-                    dLdE_j = 0
-                    # Sum over multipole moments.
-                    for l in range(3):
-                        for m in range(-l, l + 1):
-                            Ylm = self._real_sph_harm(l, m, theta.to_value('radian'), phi.to_value('radian'))
-                            dLdE_j += self._h5file[key]['g{}'.format(ebin)]['l={} m={}'.format(l, m)][j] * Ylm
-                    dLdE[ebin] = dLdE_j
-
-                factor = 1. if flavor.is_electron else 0.25
-                binspec[flavor] = dLdE * factor * self.fluxunit
-                binspec[flavor] = binspec[flavor].to('erg/(s*MeV)')
+        for flavor in ThreeFlavor:
+            E[flavor] = self.E[flavor][j]
+            dE[flavor] = self.dE[flavor][j]
+            binspec[flavor] = self.dLdE[flavor][j,:,k]
 
         return E, dE, binspec
+        
+    def get_initial_spectra(self, t, E, theta, phi, flavors=ThreeFlavor, interpolation='linear'):
+        spectra_dict = self._get_initial_spectra_dict(t, E, theta, phi, flavors, interpolation)
+        return Spectrum.from_dict(spectra_dict,
+                                  time=t,
+                                  energy=E,
+                                  flavor_scheme=ThreeFlavor)
 
-    def get_initial_spectra(self, t, E, theta, phi, flavors=Flavor, interpolation='linear'):
+    def _get_initial_spectra_dict(self, t, E, theta, phi, flavors=ThreeFlavor, interpolation='linear'):
         """Get neutrino spectra/luminosity curves before flavor transformation.
 
         Parameters
@@ -602,17 +595,18 @@ class Fornax_2019(SupernovaModel):
 
         Returns
         -------
-        initialspectra : dict
+        initial_spectra : dict
             Dictionary of model spectra, keyed by neutrino flavor.
         """
-        initialspectra = {}
+        initial_spectra = {}
 
         # Extract the binned spectra for the input t, theta, phi:
         _E, _dE, _spec = self._get_binnedspectra(t, theta, phi)
 
         # Avoid "division by zero" in retrieval of the spectrum.
         E[E == 0] = np.finfo(float).eps * E.unit
-        logE = np.log10(E.to_value('MeV'))
+        logE = np.atleast_1d(np.log10(E.to_value('MeV')))
+        logeps = np.log10(np.finfo(float).eps * E.unit / u.MeV)
 
         for flavor in flavors:
 
@@ -621,35 +615,47 @@ class Fornax_2019(SupernovaModel):
                 # Pad log(E) array with values where flux is fixed to zero.
                 _logE = np.log10(_E[flavor].to_value('MeV'))
                 _dlogE = np.diff(_logE)
-                _logEbins = np.insert(_logE, 0, np.log10(np.finfo(float).eps * E.unit/u.MeV))
-                _logEbins = np.append(_logEbins, _logE[-1] + _dlogE[-1])
 
-                # Pad with values where flux is fixed to zero.
-                _dLdE = _spec[flavor].to_value(self.fluxunit)
-                _dLdE = np.insert(_dLdE, 0, 0.)
-                _dLdE = np.append(_dLdE, 0.)
+                # Set up energy bin edges
+                nt, nene = _E[flavor].shape
+                _logEbins = np.full((nt, nene+2), logeps)
+                _logEbins[:, 1:-1] = _logE
+                _logEbins[:,-1] = _logE[:,-1] + _dlogE[:,-1]
 
-                initialspectra[flavor] = np.interp(logE, _logEbins, _dLdE) * self.fluxunit
+                # Pad spectrum with values where flux is fixed to zero:
+                _dLdE = np.full((nt, nene+2), 0.)
+                _dLdE[:, 1:-1] = _spec[flavor].to_value(self.dLdE_unit)
 
+                initial_spectra[flavor] = []
+                for i in range(nt):
+                    initial_spectra[flavor].append(np.interp(logE, _logEbins[i], _dLdE[i]) * (self.dLdE_unit / E).to('1/(MeV*s)'))
+                initial_spectra[flavor] = np.vstack(initial_spectra[flavor])
+
+            # Nearest point interpolation
             elif interpolation.lower() == 'nearest':
                 _logE = np.log10(_E[flavor].to_value('MeV'))
-                _dlogE = np.diff(_logE)[0]
-                _logEbins = _logE - _dlogE
-                _logEbins = np.concatenate((_logEbins, [_logE[-1] + _dlogE]))
-                _Ebins = 10**_logEbins
+                _dlogE = np.diff(_logE)[:,0]
 
-                idx = np.searchsorted(_Ebins, E) - 1
-                select = (idx > 0) & (idx < len(_E[flavor]))
+                # Set up energy bin edges
+                nt, nene = _E[flavor].shape
+                _logEbins = np.full((nt, nene+1), 0.)
+                _logEbins[:, :-1] = _logE - 0.5*_dlogE[:,np.newaxis]
+                _logEbins[:, -1] = _logE[:,-1] + 0.5*_dlogE
+                _Ebins = 10**_logEbins * u.MeV
 
-                _dLdE = np.zeros(len(E))
-                _dLdE[np.where(select)] = np.asarray([_spec[flavor][i].to_value(self.fluxunit) for i in idx[select]])
-                initialspectra[flavor] = _dLdE * self.fluxunit
+                initial_spectra[flavor] = []
+                for i in range(nt):
+                    idx = np.digitize(E, _Ebins[i])
+                    idx[idx > 0] -= 1
+                    idx[idx >= nene] = nene-1
+                    initial_spectra[flavor].append((_spec[flavor][i][idx] / E).to('1/(MeV*s)'))
+                initial_spectra[flavor] = np.vstack(initial_spectra[flavor])
 
+            # Unrecognized interpolation
             else:
                 raise ValueError('Unrecognized interpolation type "{}"'.format(interpolation))
 
-        return initialspectra
-
+        return initial_spectra
 
 class Fornax_2021(SupernovaModel):
     def __init__(self, filename, metadata={}):
@@ -659,7 +665,8 @@ class Fornax_2021(SupernovaModel):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
-
+        #extra parameters
+        self.interpolation = "linear" #Scheme to interpolate in spectra ('nearest', 'linear').
         # Open the requested filename using the model downloader.
         datafile = self.request_file(filename)
         # Set up model metadata.
@@ -673,12 +680,14 @@ class Fornax_2021(SupernovaModel):
         self.luminosity = {}
         self._E = {}
         self._dLdE = {}
-        for flavor in Flavor:
+        for flavor in ThreeFlavor:
             # Convert flavor to key name in the model HDF5 file
-            key = {Flavor.NU_E: 'nu0',
-                   Flavor.NU_E_BAR: 'nu1',
-                   Flavor.NU_X: 'nu2',
-                   Flavor.NU_X_BAR: 'nu2'}[flavor]
+            key = {ThreeFlavor.NU_E: 'nu0',
+                   ThreeFlavor.NU_E_BAR: 'nu1',
+                   ThreeFlavor.NU_MU: 'nu2',
+                   ThreeFlavor.NU_MU_BAR: 'nu2',
+                   ThreeFlavor.NU_TAU: 'nu2',
+                   ThreeFlavor.NU_TAU_BAR: 'nu2'}[flavor]
 
             self._E[flavor] = np.asarray(_h5file[key]['egroup'])
             self._dLdE[flavor] = {f"g{i}": np.asarray(_h5file[key][f'g{i}']) for i in range(12)}
@@ -694,7 +703,7 @@ class Fornax_2021(SupernovaModel):
             factor = 1. if flavor.is_electron else 0.25
             self.luminosity[flavor] = np.sum(dLdE*dE, axis=1) * factor * 1e50 * u.erg/u.s
 
-    def get_initial_spectra(self, t, E, flavors=Flavor, interpolation='linear'):
+    def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
         """Get neutrino spectra/luminosity curves after oscillation.
 
         Parameters
@@ -705,9 +714,6 @@ class Fornax_2021(SupernovaModel):
             Energies to evaluate the initial spectra.
         flavors: iterable of snewpy.neutrino.Flavor
             Return spectra for these flavors only (default: all)
-        interpolation : str
-            Scheme to interpolate in spectra ('nearest', 'linear').
-
         Returns
         -------
         initialspectra : dict
@@ -735,7 +741,7 @@ class Fornax_2021(SupernovaModel):
             factor = 1. if flavor.is_electron else 0.25
 
             # Linear interpolation in flux.
-            if interpolation.lower() == 'linear':
+            if self.interpolation.lower() == 'linear':
                 # Pad log(E) array with values where flux is fixed to zero.
                 _logEbins = np.insert(_logE, 0, np.log10(np.finfo(float).eps * E.unit/u.MeV), axis=1)
                 _logEbins = np.append(_logEbins, np.expand_dims(_logE[:,-1] + _dlogE[:,-1], 1), axis=1)
@@ -747,7 +753,7 @@ class Fornax_2021(SupernovaModel):
                                           for __logEbins, __dNLdE in zip(_logEbins, _dNLdE)])
                 initialspectra[flavor] = (interp_values / E * factor * 1e50 * u.erg/u.s/u.MeV).to('1 / (erg s)')
 
-            elif interpolation.lower() == 'nearest':
+            elif self.interpolation.lower() == 'nearest':
                 # Find edges of energy bins and identify which energy bin (each entry of) E falls into
                 _logEbinEdges = _logE - _dlogE[0,0] / 2
                 _logEbinEdges = np.append(_logEbinEdges, np.expand_dims(_logE[:,-1] + _dlogE[:,-1]/2, 1), axis=1)
@@ -763,7 +769,7 @@ class Fornax_2021(SupernovaModel):
                 initialspectra[flavor] = ((_dNLdE << 1/u.MeV) * factor * 1e50 * u.erg/u.s/u.MeV).to('1 / (erg s)')
 
             else:
-                raise ValueError('Unrecognized interpolation type "{}"'.format(interpolation))
+                raise ValueError('Unrecognized interpolation type "{}"'.format(self.interpolation))
 
         return initialspectra
 
@@ -776,6 +782,8 @@ class Fornax_2022(Fornax_2021):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
+        #extra parameters
+        self.interpolation = "linear" #Scheme to interpolate in spectra ('nearest', 'linear').
         # Open the requested filename using the model downloader.
         datafile = self.request_file(filename)
         # Set up model metadata.
@@ -793,12 +801,14 @@ class Fornax_2022(Fornax_2021):
         self.luminosity = {}
         self._E = {}
         self._dLdE = {}
-        for flavor in Flavor:
+        for flavor in ThreeFlavor:
             # Convert flavor to key name in the model HDF5 file
-            key = {Flavor.NU_E: 'nu0',
-                   Flavor.NU_E_BAR: 'nu1',
-                   Flavor.NU_X: 'nu2',
-                   Flavor.NU_X_BAR: 'nu2'}[flavor]
+            key = {ThreeFlavor.NU_E: 'nu0',
+                   ThreeFlavor.NU_E_BAR: 'nu1',
+                   ThreeFlavor.NU_MU: 'nu2',
+                   ThreeFlavor.NU_MU_BAR: 'nu2',
+                   ThreeFlavor.NU_TAU: 'nu2',
+                   ThreeFlavor.NU_TAU_BAR: 'nu2'}[flavor]
 
             self._E[flavor] = np.asarray(_h5file[key]['egroup'])
             self._dLdE[flavor] = {f"g{i}": np.asarray(_h5file[key][f'g{i}']) for i in range(12)}
@@ -883,8 +893,8 @@ class Mori_2023(PinchedModel):
 
         # Get grid of model times.
         simtab['TIME'] = simtab['2:t_pb[s]'] << u.s
-        for j, (f, fkey) in enumerate(zip([Flavor.NU_E, Flavor.NU_E_BAR, Flavor.NU_X], 'ebx')):
-            simtab[f'L_{f.name}'] = simtab[f'{6+j}:Le{fkey}[e/s]'] << u.erg / u.s
+        for j, (f, fkey) in enumerate(zip(["NU_E", "NU_E_BAR", "NU_X"], 'ebx')):
+            simtab[f'L_{f}'] = simtab[f'{6+j}:Le{fkey}[e/s]'] << u.erg / u.s
             # Compute the pinch parameter from E_rms and E_avg
             # <E^2> / <E>^2 = (2+a)/(1+a), where
             # E_rms^2 = <E^2> - <E>^2.
@@ -894,9 +904,9 @@ class Mori_2023(PinchedModel):
             x = E2 / Eavg**2
             alpha = (2-x) / (x-1)
 
-            simtab[f'E_{f.name}'] = Eavg << u.MeV
-            simtab[f'E2_{f.name}'] = E2 << u.MeV**2
-            simtab[f'ALPHA_{f.name}'] = alpha
+            simtab[f'E_{f}'] = Eavg << u.MeV
+            simtab[f'E2_{f}'] = E2 << u.MeV**2
+            simtab[f'ALPHA_{f}'] = alpha
 
 #            simtab[f'E_{f.name}'] = simtab[f'{9+j}:Em{fkey}[MeV]'] << u.MeV
 #            Erms = simtab[f'{12+j}:Er{fkey}[MeV]'] * u.MeV
@@ -910,6 +920,47 @@ class Mori_2023(PinchedModel):
 
         super().__init__(simtab, metadata)
 
+
+class Takata_2025(PinchedModel):
+    def __init__(self, filename, metadata={}):
+        """
+        Parameters
+        ----------
+        filename: str
+            Absolute or relative path to file prefix.
+            
+        """
+
+        # Open the requested filename using the model downloader.\
+        datafile = self.request_file(filename)
+
+        self.metadata = metadata
+
+        #Read ASCII data.
+        simtab = Table.read(datafile, format='ascii')
+
+        #Remove the first table row, which appears to have zero input.
+        simtab = simtab[simtab['1:t_sim[s]'] > 0]
+
+        #Get grid of model times.
+        simtab['TIME'] = simtab['2:t_pb[s]'] << u.s
+        for j, (f, fkey) in enumerate(zip(["NU_E", "NU_E_BAR", "NU_X"], 'ebx')):
+            simtab[f'L_{f}'] = simtab[f'{6+j}:Le{fkey}[e/s]'] << u.erg / u.s
+            # Compute the pinch parameter from E_rms and E_avg
+            # E_rms^2/<E>^2 = (2+a)/(1+a)
+            Eavg = simtab[f'{9+j}:Em{fkey}[MeV]']
+            Erms = simtab[f'{12+j}:Er{fkey}[MeV]']
+            x = Erms**2 / Eavg**2
+            alpha = (2-x)/(x-1)
+
+            simtab[f'E_{f}'] = Eavg << u.MeV
+            simtab[f'Erms_{f}'] = Erms << u.MeV
+            simtab[f'ALPHA_{f}'] = alpha
+
+        self.filename = os.path.basename(filename)
+
+        super().__init__(simtab, metadata)
+        
 
 class Bugli_2021(PinchedModel):
     """Model based on `Buggli (2021) <https://arxiv.org/abs/2105.00665>`_.

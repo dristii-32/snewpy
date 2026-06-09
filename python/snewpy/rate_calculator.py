@@ -12,7 +12,6 @@ from snewpy.neutrino import Flavor
 from snewpy.flux import Container
 from astropy import units as u
 from warnings import warn
-from typing import Dict
 from typing import Callable
 import scipy.stats as st
 
@@ -245,7 +244,7 @@ class DetectionChannel:
 class Detector:
     """A detector configuration for the rate calculation. """
     
-    def __init__(self, name:str, mass: u.Quantity, channels: Dict[str,DetectionChannel]):
+    def __init__(self, name:str, mass: u.Quantity, channels: dict[str,DetectionChannel]):
         """
         Parameters
         ----------
@@ -253,7 +252,7 @@ class Detector:
             Detector name
         mass: Quantity[mass]
             Detector mass
-        channels: Dict[str,DetectionChannel]
+        channels: dict[str,DetectionChannel]
             Dictionary of detection channels in the format {name:channel}
     
         Note
@@ -267,7 +266,7 @@ class Detector:
     def __repr__(self):
         return f'Detector(name="{self.name}", mass={self.mass}, channels={list(self.channels)})'
     
-    def run(self, flux:Container, detector_effects:bool=True)->Dict[str, Container]:
+    def run(self, flux:Container, detector_effects:bool=True)->dict[str, Container]:
         """Calculate the interaction rates for all channels in the detector.
 
         Parameters
@@ -279,7 +278,7 @@ class Detector:
 
         Returns
         -------
-        Dict[str,Container]
+        dict[str,Container]
             Event rate for each detection channel in as dictionary {channel name: event rate}
         """
         result = {}
@@ -291,10 +290,10 @@ class Detector:
 def _get_flavor_index(channel):
     _map = {'+e':Flavor.NU_E,
             '-e':Flavor.NU_E_BAR,
-            '+m':Flavor.NU_X,
-            '-m':Flavor.NU_X_BAR,
-            '+t':Flavor.NU_X,
-            '-t':Flavor.NU_X_BAR
+            '+m':Flavor.NU_MU,
+            '-m':Flavor.NU_MU_BAR,
+            '+t':Flavor.NU_TAU,
+            '-t':Flavor.NU_TAU_BAR
             }
     return _map[channel.parity+channel.flavor]
 
@@ -335,9 +334,9 @@ class RateCalculator(SnowglobesData):
         """
         Parameters
         ----------
-        base_dir:         Path or None
+        base_dir: Path or str
             Path to the directory where the cross-section, detector, and channel files are located
-            If empty, try to get it from ``$SNOWGLOBES`` environment var
+            If empty, use files provided by the `snowglobes_data` package.
         """
         super().__init__(base_dir=base_dir)
 
@@ -347,7 +346,7 @@ class RateCalculator(SnowglobesData):
         # Cross-section in 10^-38 cm^2
         xp = xsec[:,0]
         #get the column to read from the file
-        column = {Flavor.NU_E:1, Flavor.NU_X:2, Flavor.NU_E_BAR:4, Flavor.NU_X_BAR:5}[flavor]
+        column = {Flavor.NU_E:1, Flavor.NU_MU:2, Flavor.NU_TAU:3, Flavor.NU_E_BAR:4, Flavor.NU_MU_BAR:5, Flavor.NU_TAU_BAR:6}[flavor]
         yp = xsec[:, column]
         def xsec(energies):
             E = energies.to_value('GeV')
@@ -401,7 +400,7 @@ class RateCalculator(SnowglobesData):
                         mass=self.detectors[name].mass<<u.kt,
                         channels=channels
                        )
-    def run(self, flux:Container, detector:str, material:str=None, detector_effects:bool = True)->Dict[str, Container]:
+    def run(self, flux:Container, detector:str, material:str=None, detector_effects:bool = True)->dict[str, Container]:
         """Run the rate calculation for the given detector.    
         
         Parameters

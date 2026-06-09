@@ -3,7 +3,8 @@
 """
 import unittest
 
-from snewpy.neutrino import Flavor
+from snewpy.flavor import ThreeFlavor
+from snewpy import flux
 from snewpy.models.ccsn_loaders import Nakazato_2013, Tamborra_2014, OConnor_2013, OConnor_2015, \
                                   Sukhbold_2015, Bollig_2016, Walk_2018, \
                                   Walk_2019, Fornax_2019, Warren_2020, \
@@ -15,6 +16,20 @@ import os
 
 class TestModels(unittest.TestCase):
 
+    def check_model_spectra(self, model):
+        # Check that we can compute flux containers.
+        f = model.get_initial_spectra([0]*u.s, [10]*u.MeV)
+        self.assertEqual(type(f), flux.Container['1/(MeV*s)'])
+        self.assertEqual(len(f.flavor),len(ThreeFlavor))
+        self.assertEqual(f[ThreeFlavor.NU_E].unit, 1/(u.MeV * u.s))
+
+    def check_model_spectra_angular(self, model):
+        # Check that we can compute flux containers.
+        f = model.get_initial_spectra([0]*u.s, [10]*u.MeV, theta=0*u.deg, phi=0*u.deg)
+        self.assertEqual(type(f), flux.Container['1/(MeV*s)'])
+        self.assertEqual(len(f.flavor),len(ThreeFlavor))
+        self.assertEqual(f[ThreeFlavor.NU_E].unit, 1/(u.MeV * u.s))
+         
     def test_Nakazato_2013(self):
         """
         Instantiate a set of 'Nakazato 2013' models
@@ -30,11 +45,7 @@ class TestModels(unittest.TestCase):
                     self.assertTrue(t.unit, u.s)
                     self.assertEqual(model.time[0], -50*u.ms)
 
-                    # Check that we can compute flux dictionaries.
-                    f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-                    self.assertEqual(type(f), dict)
-                    self.assertEqual(len(f), len(Flavor))
-                    self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+                    self.check_model_spectra(model)
 
     def test_Tamborra_2014(self):
         """
@@ -53,11 +64,7 @@ class TestModels(unittest.TestCase):
                     t = model.get_time()
                     self.assertTrue(t.unit, u.s)
 
-                    # Check that we can compute flux dictionaries.
-                    f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-                    self.assertEqual(type(f), dict)
-                    self.assertEqual(len(f), len(Flavor))
-                    self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+                    self.check_model_spectra(model)
 
     def test_Bugli_2021(self):
         """
@@ -82,11 +89,7 @@ class TestModels(unittest.TestCase):
                 t = model.get_time()
                 self.assertTrue(t.unit, u.s)
 
-                # Check that we can compute flux dictionaries.
-                f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-                self.assertEqual(type(f), dict)
-                self.assertEqual(len(f), len(Flavor))
-                self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+                self.check_model_spectra(model)
 
     def test_Fischer_2020(self):
         """
@@ -103,11 +106,7 @@ class TestModels(unittest.TestCase):
         t = model.get_time()
         self.assertTrue(t.unit, u.s)
 
-        # Check that we can compute flux dictionaries.
-        f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-        self.assertEqual(type(f), dict)
-        self.assertEqual(len(f), len(Flavor))
-        self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+        self.check_model_spectra(model)
 
     def test_OConnor_2013(self):
         """
@@ -129,11 +128,7 @@ class TestModels(unittest.TestCase):
                 t = model.get_time()
                 self.assertTrue(t.unit, u.s)
 
-                # Check that we can compute flux dictionaries.
-                f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-                self.assertEqual(type(f), dict)
-                self.assertEqual(len(f), len(Flavor))
-                self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+                self.check_model_spectra(model)
 
     def test_OConnor_2015(self):
         """
@@ -146,11 +141,7 @@ class TestModels(unittest.TestCase):
         t = model.get_time()
         self.assertTrue(t.unit, u.s)
 
-        # Check that we can compute flux dictionaries.
-        f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-        self.assertEqual(type(f), dict)
-        self.assertEqual(len(f), len(Flavor))
-        self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+        self.check_model_spectra(model)
 
     def test_Sukhbold_2015(self):
         """
@@ -165,11 +156,7 @@ class TestModels(unittest.TestCase):
                 t = model.get_time()
                 self.assertTrue(t.unit, u.s)
 
-                # Check that we can compute flux dictionaries.
-                f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-                self.assertEqual(type(f), dict)
-                self.assertEqual(len(f), len(Flavor))
-                self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+                self.check_model_spectra(model)
 
     def test_Bollig_2016(self):
         """
@@ -183,11 +170,7 @@ class TestModels(unittest.TestCase):
             t = model.get_time()
             self.assertTrue(t.unit, u.s)
 
-            # Check that we can compute flux dictionaries.
-            f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-            self.assertEqual(type(f), dict)
-            self.assertEqual(len(f), len(Flavor))
-            self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+            self.check_model_spectra(model)
 
     def test_Walk_2018(self):
         """
@@ -203,11 +186,7 @@ class TestModels(unittest.TestCase):
                 t = model.get_time()
                 self.assertTrue(t.unit, u.s)
 
-                # Check that we can compute flux dictionaries.
-                f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-                self.assertEqual(type(f), dict)
-                self.assertEqual(len(f), len(Flavor))
-                self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+                self.check_model_spectra(model)
 
     def test_Walk_2019(self):
         """
@@ -225,12 +204,9 @@ class TestModels(unittest.TestCase):
                 t = model.get_time()
                 self.assertTrue(t.unit, u.s)
 
-                # Check that we can compute flux dictionaries.
-                f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-                self.assertEqual(type(f), dict)
-                self.assertEqual(len(f), len(Flavor))
-                self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
-
+                self.check_model_spectra(model)
+    
+    #we know the Fornax_2019 is now inconsistent with our interface
     def test_Fornax_2019(self):
         """
         Instantiate a set of 'Fornax 2019' models
@@ -245,11 +221,7 @@ class TestModels(unittest.TestCase):
             t = model.get_time()
             self.assertTrue(t.unit, u.s)
 
-            # Check that we can compute flux dictionaries.
-            f = model.get_initial_spectra(0*u.s, 10*u.MeV, theta=23*u.degree, phi=22*u.degree)
-            self.assertEqual(type(f), dict)
-            self.assertEqual(len(f), len(Flavor))
-            self.assertEqual(f[Flavor.NU_E].unit, u.erg/(u.MeV * u.s))
+            self.check_model_spectra_angular(model)
 
     def test_Warren_2020(self):
         """
@@ -293,11 +265,7 @@ class TestModels(unittest.TestCase):
                 t = model.get_time()
                 self.assertTrue(t.unit, u.s)
 
-                # Check that we can compute flux dictionaries.
-                f = model.get_initial_spectra(0 * u.s, 10 * u.MeV)
-                self.assertEqual(type(f), dict)
-                self.assertEqual(len(f), len(Flavor))
-                self.assertEqual(f[Flavor.NU_E].unit, 1. / (u.erg * u.s))
+                self.check_model_spectra(model)
 
     def test_Kuroda_2020(self):
         """
@@ -311,11 +279,7 @@ class TestModels(unittest.TestCase):
             t = model.get_time()
             self.assertTrue(t.unit, u.s)
 
-            # Check that we can compute flux dictionaries.
-            f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-            self.assertEqual(type(f), dict)
-            self.assertEqual(len(f), len(Flavor))
-            self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+            self.check_model_spectra(model)
 
     def test_Fornax_2021(self):
         """
@@ -323,7 +287,7 @@ class TestModels(unittest.TestCase):
         """
         for mass in ['12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '25', '26', '26.99']:
             mfile = 'Fornax_2021/lum_spec_{}M_r10000_dat.h5'.format(mass)
-            model = Fornax_2021(os.path.join(model_path, mfile), metadata={'Progenitor mass': mass*u.Msun})
+            model = Fornax_2021(os.path.join(model_path, mfile), metadata={'Progenitor mass': float(mass)*u.Msun})
 
             self.assertEqual(model.metadata['Progenitor mass'], float(mass)*u.Msun)
 
@@ -331,11 +295,7 @@ class TestModels(unittest.TestCase):
             t = model.get_time()
             self.assertTrue(t.unit, u.s)
 
-            # Check that we can compute flux dictionaries.
-            f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-            self.assertEqual(type(f), dict)
-            self.assertEqual(len(f), len(Flavor))
-            self.assertEqual(f[Flavor.NU_E].unit, 1/(u.erg * u.s))
+            self.check_model_spectra(model)
 
     def test_Zha_2021(self):
         """
@@ -349,8 +309,4 @@ class TestModels(unittest.TestCase):
             t = model.get_time()
             self.assertTrue(t.unit, u.s)
 
-            # Check that we can compute flux dictionaries.
-            f = model.get_initial_spectra(0*u.s, 10*u.MeV)
-            self.assertEqual(type(f), dict)
-            self.assertEqual(len(f), len(Flavor))
-            self.assertEqual(f[Flavor.NU_E].unit, 1./(u.erg * u.s))
+            self.check_model_spectra(model)
