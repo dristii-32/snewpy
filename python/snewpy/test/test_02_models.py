@@ -8,9 +8,12 @@ from snewpy import flux
 from snewpy.models.ccsn_loaders import Nakazato_2013, Tamborra_2014, OConnor_2013, OConnor_2015, \
                                   Sukhbold_2015, Bollig_2016, Walk_2018, \
                                   Walk_2019, Fornax_2019, Warren_2020, \
-                                  Kuroda_2020, Fornax_2021, Zha_2021, Bugli_2021, Fischer_2020
+                                  Fischer_2020, Kuroda_2020, \
+                                  Bugli_2021, Fornax_2021, Zha_2021, \
+                                  Fornax_2024
 from astropy import units as u
 from snewpy import model_path
+import re
 import os
 
 
@@ -304,6 +307,28 @@ class TestModels(unittest.TestCase):
         for mass in ['16', '17', '18', '19', '19.89', '20', '21', '22.39', '23', '24', '25', '26', '30', '33']:
             mfile = 'Zha_2021/s{}.dat'.format(mass)
             model = Zha_2021(os.path.join(model_path, mfile))
+
+            # Check that times are in proper units.
+            t = model.get_time()
+            self.assertTrue(t.unit, u.s)
+
+            self.check_model_spectra(model)
+
+    def test_Fornax_2024(self):
+        """
+        Instantiate a set of 'Fornax 2024' models
+        """
+        masses = [ 'u8.1',  '9b',     '9.25',  '9.5',
+                   'z9.6',  '11',    '12.25',  '14',    '15.01',
+                   '16.5',  '16',    '17',     '18',    '18.5',
+                   '19',    '19.56', '20',     '21.68', '23',
+                   '24',    '25',    '40',     '60',    '100' ]
+
+        for mass in masses:
+            mfile = f'Fornax_2024/lum_spec_{mass}_dat.h5'
+            model = Fornax_2024(os.path.join(model_path, mfile), metadata={'Progenitor mass': float(re.sub('[A-Za-z]', '', mass))*u.Msun})
+
+            self.assertEqual(model.metadata['Progenitor mass'], float(re.sub('[A-Za-z]', '', mass))*u.Msun)
 
             # Check that times are in proper units.
             t = model.get_time()
