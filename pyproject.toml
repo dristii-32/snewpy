@@ -45,9 +45,6 @@ include = [
     "snewpy",
     "snewpy.*",
 ]
-exclude = [
-    "snewpy.scripts",
-]
 
 [tool.setuptools.package-data]
 "snewpy.models" = ["*.yml"]
