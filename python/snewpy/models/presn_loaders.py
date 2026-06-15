@@ -12,6 +12,10 @@ from snewpy.models.base import SupernovaModel
 from snewpy.flavor import ThreeFlavor
 from pathlib import Path
 
+import io
+import re
+import zipfile
+
 def _interp_T(t0, v0, dt=1e-3, dv=1e-10, axis=0):
     "dilog interpolation"
     lt0 = np.log(t0 + dt)
@@ -61,8 +65,8 @@ class Odrzywolek_2010(SupernovaModel):
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
         # negative t for time before SN
-        t = -t.to_value("s")
-        E = E.to_value("MeV")
+        t = np.array(-t.to_value("s"), ndmin=1)
+        E = np.array(E.to_value("MeV"), ndmin=1)
         df = self.df_t(t)
         a, alpha, b = df.T
         Enu = np.expand_dims(E, 1)
@@ -178,6 +182,66 @@ class Yoshida_2016(SupernovaModel):
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
         t = np.array(-t.to_value("s"), ndmin=1)
+        E = np.array(E.to_value("MeV"), ndmin=1)
+        flux = self.interpolated(t, E) / (u.MeV * u.s)
+        return {f: flux[f] for f in flavors}
+    
+class Myers_2026(SupernovaModel):
+    """Set up a presupernova model based on 
+    [Myers et al. (2026) arxiv.org/abs/2604.22605]
+    """
+    _T_CC_RE = re.compile(r"t_cc\s*=\s*([-+0-9.eE]+)") # regex pattern to find t_cc in header of files
+
+
+    def __init__(self, filename, metadata={}):         
+                                                                                                       
+        datafile = self.request_file(filename)    
+        with zipfile.ZipFile(datafile) as zf:
+            beta_names = sorted(n for n in zf.namelist()                                                                                                                     
+                                if "/betaLuminosity/" in n and n.endswith(".dat"))
+            pair_names = sorted(n for n in zf.namelist()                                                                                                                     
+                                if "/pairLuminosity/" in n and n.endswith(".dat"))
+                                                                                                                                                                            
+            # create dictionaries for beta and pair processes. keys are MESA profile numbers, entries are t_cc, energy, spectral data                                                                                     
+            beta = {self._profile(n): self._read_snapshot(zf, n) for n in beta_names}
+            pair = {self._profile(n): self._read_snapshot(zf, n) for n in pair_names}  
+
+ 
+        profiles = sorted(beta.keys() & pair.keys(), key=lambda k: beta[k][0])  # sort by t_cc, make sure to align across beta and pair processes
+        profiles = [k for k in profiles if beta[k][0] >= -1000]  # keep only last 1000 hours before collapse
+        times = np.array([beta[k][0] for k in profiles])
+        energies = np.array(beta[profiles[0]][1]) # all profiles have the same energy grid, just take the first                                                                                                                                                                       
+
+        nu_e      = np.stack([beta[k][2][:, 0] + pair[k][2][:, 0] for k in profiles])  # (nT, nE)
+        nu_e_bar  = np.stack([beta[k][2][:, 1] + pair[k][2][:, 1] for k in profiles])                                                                                                
+        nu_mu     = np.stack([pair[k][2][:, 2] for k in profiles])  # beta contributes 0
+        nu_mu_bar = np.stack([pair[k][2][:, 3] for k in profiles])                                                                                               
+        nu_tau    = nu_mu                                           # mu = tau                                                                                                                  
+        nu_tau_bar= nu_mu_bar
+
+        dNdEdT = np.stack([nu_e, nu_e_bar, nu_mu, nu_mu_bar, nu_tau, nu_tau_bar], axis=0)
+
+        self.interpolated = _interp_TE(
+            np.abs(times), energies, dNdEdT, ax_t=1, ax_e=2
+        )
+        super().__init__(times << u.hour, metadata)
+
+    @classmethod
+    def _read_snapshot(cls, zf, name):                                                                                                                                            
+        with zf.open(name) as f:
+            text = io.TextIOWrapper(f, encoding="utf-8").read() 
+        t_cc = float(cls._T_CC_RE.search(text).group(1))        # get the time to collapse in hours from the file headers                                                                                                               
+        data = np.loadtxt(io.StringIO(text), comments="#")  
+        if data[0, 0] == 0.0:                                                                                                                                                    
+            data = data[1:]                       # drop the energy=0 row                                                                                                                
+        return t_cc, data[:, 0], data[:, 1:]
+
+    @staticmethod                                                                                                                                                            
+    def _profile(name):                                                                                                                                                      
+        return int(re.search(r"LuminosityProfile(\d+)\.dat$", name).group(1))
+
+    def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
+        t = np.array(-t.to_value("hour"), ndmin=1)
         E = np.array(E.to_value("MeV"), ndmin=1)
         flux = self.interpolated(t, E) / (u.MeV * u.s)
         return {f: flux[f] for f in flavors}

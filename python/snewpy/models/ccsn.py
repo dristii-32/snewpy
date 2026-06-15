@@ -244,7 +244,7 @@ class Kuroda_2020(loaders.Kuroda_2020):
         return super().__init__(filename, self.metadata)
 
 @RegistryModel(
-    progenitor_mass=[9, 10, 12, 13, 14, 15, 16, 19, 25, 60] * u.Msun,
+    progenitor_mass=[9, 10, 12, 13, 14, 15, 19, 25, 60] * u.Msun,
 )
 class Fornax_2019(loaders.Fornax_2019):
     """Model based on 3D simulations from D. Vartanyan, A. Burrows, D. Radice, M.  A. Skinner and J. Dolence, MNRAS 482(1):351, 2019.
@@ -303,6 +303,7 @@ _fornax_2022_progenitors = [  '9.0',     '9.25',     '9.5',      '9.75',     '10
 
 _fornax_2022_masses = [float(p.strip('.bh')) for p in _fornax_2022_progenitors] << u.Msun
 
+
 @RegistryModel(progenitor_mass = _fornax_2022_masses )
 class Fornax_2022(loaders.Fornax_2022):
     """Model based on 2D simulations of 100 progenitors from Tianshu Wang, David Vartanyan, Adam Burrows, and Matthew S.B. Coleman, MNRAS 517:543, 2022.
@@ -314,6 +315,31 @@ class Fornax_2022(loaders.Fornax_2022):
     def __init__(self, progenitor_mass:u.Quantity):
         progenitor = self._mass_to_progenitor[progenitor_mass]
         self.metadata['Black hole'] = progenitor.endswith('.bh')
+        filename = f'lum_spec_{progenitor}_dat.h5'
+        return super().__init__(filename, self.metadata)
+
+
+_fornax_2024_progenitors = [
+                'u8.1',  '9b',     '9.25',  '9.5',
+                'z9.6',  '11',    '12.25',  '14',    '15.01',
+                '16.5',  '16',    '17',     '18',    '18.5',
+                '19',    '19.56', '20',     '21.68', '23',
+                '24',    '25',    '40',     '60',    '100']
+
+_fornax_2024_masses = [float(re.sub('[A-Za-z]', '', p)) for p in _fornax_2024_progenitors] << u.Msun
+
+
+@RegistryModel(progenitor_mass = _fornax_2024_masses )
+class Fornax_2024(loaders.Fornax_2024):
+    """Model based on 3D simulations of 25 progenitors using the Fornax code.
+       Data available at https://www.astro.princeton.edu/~burrows/nu-emissions.3d.update/
+       """
+    #a mapping of mass to the progenitor
+    _mass_to_progenitor = dict(zip(_fornax_2024_masses,_fornax_2024_progenitors))
+
+    def __init__(self, progenitor_mass:u.Quantity):
+        progenitor = self._mass_to_progenitor[progenitor_mass]
+        self.metadata['Black hole'] = progenitor == '12.25' or progenitor == '14' or progenitor == '19.56' or progenitor == '40'
         filename = f'lum_spec_{progenitor}_dat.h5'
         return super().__init__(filename, self.metadata)
 
@@ -369,6 +395,57 @@ class Mori_2023(loaders.Mori_2023):
         self.metadata['PNS mass'] = pns_mass*u.Msun
         return super().__init__(filename, self.metadata)
 
+
+@RegistryModel(
+               _param_validator = lambda p: \
+               (p['progenitor_mass'].to_value('Msun') in (11.2, 20, 25) and p['axion_mass'] == 0 and p['axion_coupling'] == 0) or \
+               (p['progenitor_mass'].to_value('Msun') in (11.2, 20, 25) and p['axion_mass'].to_value('MeV') in (40, 100, 150, 200, 300, 600, 400, 800) and p['axion_coupling'].to_value('1e-10/GeV') in (2, 4, 6, 8, 10)),
+
+               progenitor_mass = Parameter(values=[11.2, 20, 25]<<u.Msun,
+                                          description='Progenitor star mass in units of M☉'),
+               axion_mass = Parameter(values=[0, 40, 100, 150, 200, 300, 400, 600, 800]<<u.MeV,
+                                      description='Axion mass in units of MeV'),
+               axion_coupling = Parameter(values=[0, 2, 4, 6, 8, 10]<<(1e-10/u.GeV),
+                                          description='Axion-photon coupling, in units of 1e-10/GeV',
+                                          precision=2 #round to 1e-12/u.GeV
+                                         )
+              )
+class Takata_2025(loaders.Takata_2025):
+    """
+    Model based on 1D simulations with axionlike particles, Takata, T. et al., PhysRevD.111.103028, 2025.
+    Data from private communication.
+    """
+
+    def __init__(self, progenitor_mass:u.Quantity, axion_mass:u.Quantity, axion_coupling:u.Quantity):
+        """ 
+        This simulation is conducted for a progenitor_mass of 11.2, 20, and 25 M_sun.
+        Each of these progenitors are simulated for a set of ALP parameters: ALP mass, m_a [MeV] = (0, 40, 100, 150, 300, 400, 600, 800), and
+        ALP-photon coupling strength, g_a𝛄 [10^-10/GeV] = (0, 4, 6, 8, 10)
+        """
+        # Make sure the axion coupling is converted to units 1e-10/GeV:
+        # axion_coupling = np.round(axion_coupling.to('1e-10/GeV'))
+
+        if axion_mass == 0:
+            if progenitor_mass == 11.2*u.Msun:
+                filename = '11_000_00.dat'
+            elif progenitor_mass == 20*u.Msun:
+                filename = '20_000_00.dat'
+            else: 
+                filename = '25_000_00.dat'
+
+        else:
+            if progenitor_mass == 11.2*u.Msun:
+                filename = f'11_{axion_mass.to_value("MeV"):3g}_{axion_coupling.to_value("1e-10/GeV"):02g}.dat'
+            elif progenitor_mass == 20*u.Msun:
+                filename = f'20_{axion_mass.to_value("MeV"):3g}_{axion_coupling.to_value("1e-10/GeV"):02g}.dat'
+            else: 
+                filename = f'25_{axion_mass.to_value("MeV"):3g}_{axion_coupling.to_value("1e-10/GeV"):02g}.dat'
+
+        self.metadata = {}
+
+        return super().__init__(filename, self.metadata)
+
+
 @RegistryModel(
     Bfield = ['hydro','L1','L2'],
     direction = ['average','equator','north','south'],
@@ -377,7 +454,7 @@ class Mori_2023(loaders.Mori_2023):
     _param_validator = lambda p: (p['Bfield'] == 'hydro' and p['grav'] == None and p['rotation'] == None ) or
         (p['Bfield'] == 'L1' and p['grav'] == None and p['rotation'] in [0,90]) or
         (p['Bfield'] == 'L2' and p['rotation'] == None and p['grav'] in ['A','B'])
-)
+)        
 class Bugli_2021(loaders.Bugli_2021):
     """Model based on `Buggli (2021) <https://arxiv.org/abs/2105.00665>`_.
     """

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,18 +7,20 @@ name = "snewpy"
 dynamic = ["version"]
 description = "A Python package for working with supernova neutrinos"
 authors = [{ name = "SNEWS Collaboration", email = "snews2.0@lists.bnl.gov" }]
-license = { text = "BSD" }
+license = "BSD-3-Clause"
+license-files = ["LICEN[CS]E*"]
 readme = {file = "README.md", content-type = "text/markdown"}
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 dependencies = [
     "numpy",
     "scipy",
-    "astropy >= 4.3",
+    "astropy",
+    "astropy-healpix >= 1.1",
     "pandas",
     "tqdm",
-    "matplotlib",
+    "matplotlib < 3.11",
     "h5py",
     "requests",
     "pyyaml",
@@ -42,9 +44,6 @@ where = ["python"]
 include = [
     "snewpy",
     "snewpy.*",
-]
-exclude = [
-    "snewpy.scripts",
 ]
 
 [tool.setuptools.package-data]
