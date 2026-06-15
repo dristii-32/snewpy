@@ -15,7 +15,7 @@ from snewpy.models.registry_model import all_models
 @RegistryModel(
     mechanism = ['GCD', 'DDT'],    
 )
-class TypeIa(loaders.TypeIa):
+class Wright_2016(loaders.Wright_2016):
     """The DDT model is described in 'Neutrinos from type Ia supernovae: The deflagration-to-detonation transition scenario', by Warren P. Wright et al.,
     [Phys. Rev. D94 (2016) 025026](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.94.025026), [arXiv:1605.01408](https://arxiv.org/abs/1605.01408).  
     There are 30 snapshots in time and the format of each data file is the SNOwGLoBES format.  
