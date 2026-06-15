@@ -3,13 +3,16 @@ import os
 from abc import ABC, abstractmethod
 
 import numpy as np
+
 from astropy import units as u
 from astropy.table import Table
 from astropy.units import UnitTypeError, get_physical_type
 from astropy.units.quantity import Quantity
 from scipy.special import loggamma
-from snewpy._model_downloader import LocalFileLoader
 
+import tarfile
+
+from snewpy._model_downloader import LocalFileLoader
 from snewpy.flavor import ThreeFlavor
 from snewpy.flavor_transformation import NoTransformation
 from functools import wraps
