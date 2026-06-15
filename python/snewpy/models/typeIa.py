@@ -8,7 +8,6 @@ import os
 from astropy import units as u
 
 from snewpy.models import typeIa_loaders as loaders
-from .base import SupernovaModel
 
 from snewpy.models.registry_model import RegistryModel, Parameter
 from snewpy.models.registry_model import all_models
