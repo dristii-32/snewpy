@@ -375,12 +375,12 @@ class SNOwGLoBES(SupernovaModel):
         spectra : dict
             Dictionary of model spectra, keyed by neutrino flavor.
         """   
-        #convert input arguments to 1D arrays
-        t = u.Quantity(t, ndmin=1)
-        E = u.Quantity(E, ndmin=1)
+        t = u.Quantity(t, ndmin=1).to(u.s).value
+        E = u.Quantity(E, ndmin=1).to(u.MeV).value
+        tE_grid = np.stack(np.meshgrid(t, E, indexing='ij'), axis=-1)
 
         initial_spectra = {}
         for flavor in ThreeFlavor:
-            initial_spectra[flavor] = self.interpolation[flavor]((t, E)) / (u.MeV * u.s)
+            initial_spectra[flavor] = self.interpolation[flavor](tE_grid) / (u.MeV * u.s)
 
         return initial_spectra
