@@ -12,6 +12,8 @@ from scipy.special import loggamma
 
 import tarfile
 
+from scipy import interpolate 
+
 import logging
 
 from snewpy._model_downloader import LocalFileLoader
