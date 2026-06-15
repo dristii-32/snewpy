@@ -21,8 +21,8 @@ E = np.linspace(0,20,100)*u.MeV
 
 def test_pisn_rate(model_class, model_params, transformation, detector):
     model = model_class(**model_params)
-    flux = model.get_flux(T, E, distance=distance, flavor_xform=transformation)
-    rate = rc.run(flux, detector='wc100kt30prct', detector_effects=False)['ibd']
+    fluence = model.get_fluence(E, distance=distance, flavor_xform=transformation)
+    dNdE = rc.run(fluence, detector='wc100kt30prct', detector_effects=False)['ibd']
     #the factor of 0.5 is because the mass of SuperK is 50kt, not 100kt
-    ibd_events = 0.5 * rate.integrate_or_sum('time').integrate_or_sum('energy').array.squeeze()
-    assert 1<ibd_events<10
+    Nevents = 0.5 * dNdE.integrate_or_sum('energy').array.squeeze()
+    assert 1<Nevents<10
