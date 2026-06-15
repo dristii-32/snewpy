@@ -90,7 +90,7 @@ models:
             repository: *pisn_typeIa_repository                
             
     typeIa:
-        TypeIa:
+        Wright_2016:
             repository: *pisn_typeIa_repository  
               
 
