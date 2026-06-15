@@ -9,7 +9,6 @@ models from files stored on disk.
 The submodule ``snewpy.models.pisn_loaders`` contains classes to load pair-instability supernova
 models from files stored on disk.
 """
-import logging
 
 from snewpy.models.base import SNOwGLoBES
 
