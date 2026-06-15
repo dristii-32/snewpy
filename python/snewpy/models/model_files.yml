@@ -7,7 +7,7 @@ config:
     - &ccsn_repository "https://github.com/SNEWS2/snewpy-models-ccsn/raw/v0.4/models/{model}/{filename}"
     - &presn_repository "https://github.com/SNEWS2/snewpy-models-presn/raw/v0.2/models/{model}/{filename}"
     - &presn_repository_main "https://github.com/SNEWS2/snewpy-models-presn/raw/master/models/{model}/{filename}"    
-    - &pisn_typeIa_repository "https://github.com/SNEWS2/snewpy-models-pisn_typeIa/raw/v0.1/models/{model}/{filename}"        
+    - &pisn_typeIa_repository "https://github.com/SNEWS2/snewpy-models-pisn_typeIa/raw/v0.2/models/{model}/{filename}"        
     
 models:
     ccsn:
