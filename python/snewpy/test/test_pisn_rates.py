@@ -1,6 +1,6 @@
 import astropy.units as u
 import numpy as np
-from snewpy.models.pisn import Wright_2017
+from snewpy.models import pisn
 from snewpy.neutrino import MassHierarchy, MixingParameters
 from snewpy.flavor_transformation import AdiabaticMSW
 from snewpy.rate_calculator import RateCalculator
