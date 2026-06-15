@@ -19,7 +19,7 @@ E = np.linspace(0,20,100)*u.MeV
 ])
 @pytest.mark.parametrize('transformation',[AdiabaticMSW(MixingParameters(mh)) for mh in MassHierarchy])
 
-def test_pisn_rate(model_class, model_params, transformation, detector):
+def test_pisn_rate(model_class, model_params, transformation):
     model = model_class(**model_params)
     fluence = model.get_fluence(E, distance=distance, flavor_xform=transformation)
     dNdE = rc.run(fluence, detector='wc100kt30prct', detector_effects=False)['ibd']
