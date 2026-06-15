@@ -12,6 +12,8 @@ from scipy.special import loggamma
 
 import tarfile
 
+import logging
+
 from snewpy._model_downloader import LocalFileLoader
 from snewpy.flavor import ThreeFlavor
 from snewpy.flavor_transformation import NoTransformation
