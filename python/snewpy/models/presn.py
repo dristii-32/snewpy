@@ -68,8 +68,7 @@ class Yoshida_2016(loaders.Yoshida_2016):
 class Myers_2026(loaders.Myers_2026):
     """Presupernova model based on 
     [Myers et al. (2026) arxiv.org/abs/2604.22605]
-    
-    Dataset available on `GitHub <https://github.com/SNEWS2/snewpy-models-presn/tree/main/models/Myers_2026>`__
+    Dataset available on `GitHub <https://github.com/SNEWS2/snewpy-models-presn/tree/master/models/Myers_2026>`__
     """
     def __init__(self, progenitor_mass:u.Quantity, eta:float, bounds:str):
         path=f"{progenitor_mass.to_value('Msun'):.0f}M_{eta:.1f}_{bounds}.zip"
