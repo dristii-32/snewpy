@@ -356,12 +356,12 @@ class SNOwGLoBES(SupernovaModel):
                 else:
                     self.initial_spectra[flavor] = [spectrum]                
 
+        for flavor in ThreeFlavor:
+            self.interpolation[flavor] = interpolate.RegularGridInterpolator((self.time, self.energy), self.initial_spectra[flavor], method='cubic')
+
         self.time *= u.s
         self.energy *= u.MeV
         
-        for flavor in ThreeFlavor:
-            self.interpolation[flavor] = interpolate.RegularGridInterpolator((self.time, self.energy), self.initial_spectra[flavor], method='cubic')
-                            
         self.filename = os.path.basename(filename)            
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -382,7 +382,7 @@ class SNOwGLoBES(SupernovaModel):
             Dictionary of model spectra, keyed by neutrino flavor.
         """   
         t = u.Quantity(t, ndmin=1).to(u.s).value
-        E = u.Quantity(E, ndmin=1).to(u.erg).value
+        E = u.Quantity(E, ndmin=1).to(u.MeV).value
         tE_grid = np.stack(np.meshgrid(t, E, indexing='ij'), axis=-1)
 
         initial_spectra = {}
