@@ -347,8 +347,10 @@ class SNOwGLoBES(SupernovaModel):
 
             for flavor in ThreeFlavor:
                 key = self._flavorkeys[flavor]
-                # convert from flux back to initial spectra: number per /s/erg                
-                spectrum = data[key].data.tolist() * (4*np.pi*(10*u.kpc)**2) /dt/dE 
+                # convert from flux back to initial spectra: number per /s/erg        
+                # the (200.*u.keV) factor is a subtle point about the SNOwGLoBES format
+                # see the comment on line 223 of the pinched.cc code in SNOwGLoBES/fluxes  
+                spectrum = data[key].data.tolist() * (4*np.pi*(10*u.kpc)**2) /dt/(200*u.keV)
                 if flavor in self.initial_spectra:
                     self.initial_spectra[flavor].append(spectrum)
                 else:
@@ -380,11 +382,11 @@ class SNOwGLoBES(SupernovaModel):
             Dictionary of model spectra, keyed by neutrino flavor.
         """   
         t = u.Quantity(t, ndmin=1).to(u.s).value
-        E = u.Quantity(E, ndmin=1).to(u.MeV).value
+        E = u.Quantity(E, ndmin=1).to(u.erg).value
         tE_grid = np.stack(np.meshgrid(t, E, indexing='ij'), axis=-1)
 
         initial_spectra = {}
         for flavor in ThreeFlavor:
-            initial_spectra[flavor] = self.interpolation[flavor](tE_grid) / (u.MeV * u.s)
+            initial_spectra[flavor] = self.interpolation[flavor](tE_grid) / (u.erg * u.s)
 
         return initial_spectra
