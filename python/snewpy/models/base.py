@@ -316,7 +316,7 @@ class SNOwGLoBES(SupernovaModel):
         # Loop through the NoOsc files and pull out the number fluxes.
         self.time = []
         self.energy = None   
-        self.initial_spectra = {}
+        self.initial_lnspectra = {}
         self.interpolation = {}         
         
         self._flavorkeys = {ThreeFlavor.NU_E: 'NuE',
@@ -350,14 +350,14 @@ class SNOwGLoBES(SupernovaModel):
                 # convert from flux back to initial spectra: number per /s/erg        
                 # the (200.*u.keV) factor is a subtle point about the SNOwGLoBES format
                 # see the comment on line 223 of the pinched.cc code in SNOwGLoBES/fluxes  
-                spectrum = data[key].data.tolist() * (((4*np.pi*(10*u.kpc)**2) /dt/(200*u.keV)).value)
-                if flavor in self.initial_spectra:
-                    self.initial_spectra[flavor].append(spectrum)
+                lnspectrum = np.ln( data[key].data * (((4*np.pi*(10*u.kpc)**2)/dt/(200*u.keV)).value) ).tolist() 
+                if flavor in self.initial_lnspectra:
+                    self.initial_lnspectra[flavor].append(lnspectrum)
                 else:
-                    self.initial_spectra[flavor] = [spectrum]                
+                    self.initial_lnspectra[flavor] = [lnspectrum]                
 
         for flavor in ThreeFlavor:
-            self.interpolation[flavor] = interpolate.RegularGridInterpolator((self.time, self.energy), self.initial_spectra[flavor], method='cubic')
+            self.interpolation[flavor] = interpolate.RegularGridInterpolator((self.time, self.energy), self.initial_lnspectra[flavor], method='cubic')
 
         self.time *= u.s
         self.energy *= u.MeV
@@ -387,6 +387,6 @@ class SNOwGLoBES(SupernovaModel):
 
         initial_spectra = {}
         for flavor in ThreeFlavor:
-            initial_spectra[flavor] = self.interpolation[flavor](tE_grid) / (u.erg * u.s)
+            initial_spectra[flavor] = np.exp( self.interpolation[flavor](tE_grid) ) / (u.erg * u.s)
 
         return initial_spectra
