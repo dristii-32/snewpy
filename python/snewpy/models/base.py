@@ -350,7 +350,7 @@ class SNOwGLoBES(SupernovaModel):
                 # convert from flux back to initial spectra: number per /s/erg        
                 # the (200.*u.keV) factor is a subtle point about the SNOwGLoBES format
                 # see the comment on line 223 of the pinched.cc code in SNOwGLoBES/fluxes  
-                spectrum = data[key].data.tolist() * (4*np.pi*(10*u.kpc)**2) /dt/(200*u.keV)
+                spectrum = data[key].data.tolist() * (((4*np.pi*(10*u.kpc)**2) /dt/(200*u.keV)).value)
                 if flavor in self.initial_spectra:
                     self.initial_spectra[flavor].append(spectrum)
                 else:
