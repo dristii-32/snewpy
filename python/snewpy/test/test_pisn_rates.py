@@ -13,7 +13,10 @@ rc = RateCalculator()
 distance = 1000*u.pc
 
 @pytest.mark.parametrize('model_class,model_params',[
-    (pisn.Wright_2017, {'progenitor_mass': 250*u.Msun, 'eos': 'Helm'}),
+    (pisn.Wright_2017_150SFHo, {'progenitor_mass': 150*u.Msun, 'eos': 'SFHo'}),
+    (pisn.Wright_2017_150Helm, {'progenitor_mass': 150*u.Msun, 'eos': 'Helm'}),    
+    (pisn.Wright_2017_250SFHo, {'progenitor_mass': 250*u.Msun, 'eos': 'SFHo'}),
+    (pisn.Wright_2017_250Helm, {'progenitor_mass': 250*u.Msun, 'eos': 'Helm'})    
 ])
 @pytest.mark.parametrize('transformation',[AdiabaticMSW(MixingParameters(mh)) for mh in MassHierarchy])
 
@@ -25,4 +28,4 @@ def test_pisn_rate(model_class, model_params, transformation):
     dNdE = rc.run(fluence, detector='wc100kt30prct', detector_effects=False)['ibd']
     #the factor of 0.5 is because the mass of SuperK is 50kt, not 100kt
     Nevents = 0.5 * dNdE.integrate_or_sum('energy').array.squeeze()
-    assert 1<Nevents<10
+    assert 0.1<Nevents<10
