@@ -352,7 +352,11 @@ class SNOwGLoBES(SupernovaModel):
                 if flavor in self.initial_spectra:
                     self.initial_spectra[flavor].append(spectrum)
                 else:
-                    self.initial_spectra[flavor] = [spectrum]                
+                    self.initial_spectra[flavor] = [spectrum]      
+
+        # Transpose so that rows=energy and cols=time.
+        for k, v in self.initialspectra.items():
+            self.initial_spectra[k] = np.transpose(self.initial_spectra[k])        
 
         for flavor in ThreeFlavor:
             self.interpolation[flavor] = interpolate.RegularGridInterpolator((self.time, self.energy), self.initial_spectra[flavor], method='cubic')
