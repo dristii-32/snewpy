@@ -347,8 +347,8 @@ class SNOwGLoBES(SupernovaModel):
 
             for flavor in ThreeFlavor:
                 key = self._flavorkeys[flavor]
-                # convert from flux back to initial spectra: number per /s/MeV                
-                spectrum = (data[key].data * (4*np.pi*(10*3.08567758128E+18)**2)/dt/dE ).tolist() 
+                # convert from flux back to initial spectra: number per /s/erg                
+                spectrum = (data[key].data * (4*np.pi*(u.kpc.to(u.cm,10))**2)/dt/(u.MeV.to(u.erg,dE))) ).tolist() 
                 if flavor in self.initial_spectra:
                     self.initial_spectra[flavor].append(spectrum)
                 else:
@@ -385,6 +385,6 @@ class SNOwGLoBES(SupernovaModel):
 
         initial_spectra = {}
         for flavor in ThreeFlavor:
-            initial_spectra[flavor] = self.interpolation[flavor](tE_grid) / (u.MeV * u.s)
+            initial_spectra[flavor] = self.interpolation[flavor](tE_grid) / (u.erg * u.s)
 
         return initial_spectra
