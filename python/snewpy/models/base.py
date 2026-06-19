@@ -355,7 +355,7 @@ class SNOwGLoBES(SupernovaModel):
                     self.initial_spectra[flavor] = [spectrum]      
 
         # Transpose so that rows=energy and cols=time.
-        for k, v in self.initialspectra.items():
+        for k, v in self.initial_spectra.items():
             self.initial_spectra[k] = np.transpose(self.initial_spectra[k])        
 
         for flavor in ThreeFlavor:
