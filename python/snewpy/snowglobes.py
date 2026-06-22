@@ -159,7 +159,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
         tfname = output_filename + '.npz'
     else:
         model_file_root, _ = os.path.splitext(model.filename)  # strip extension (if present)
-        tfname = f'{model_file_root},'+str(flavor_transformation)+f',{times[0]}-'+f'{times[-1]},'+f'{energies[0]}-'+f'{energies[-1]},'+f'{d}'+'.npz'
+        tfname = f'{model_file_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
     flux.save(tfname)
     
     return tfname
