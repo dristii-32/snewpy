@@ -152,7 +152,10 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
     else:        
         energies = np.linspace(0, 100, 501) * u.MeV
 
+    energies_t = np.linspace(energies[0], energies[-1], 201)
+
     flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
+    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies_t)    
 
     #save resulting fluence to file
     if output_filename is not None:
@@ -160,7 +163,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
     else:
         model_file_root, _ = os.path.splitext(model.filename)  # strip extension (if present)
         tfname = f'{model_file_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
-    flux.save(tfname)
+    fluence.save(tfname)
     
     return tfname
 
@@ -187,6 +190,7 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     if(isinstance(detector_input,str)):
         detector_input=[detector_input]
     rates_dict = {}
+    
     #read the fluence
     fluence = Container.load(tarball_path)
     for det in detector_input:
@@ -196,9 +200,9 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
         rates_dict[det]={'weighted':{'unsmeared':rates_unsmeared,
                                  'smeared':rates_smeared,
                                 }}
+        
     # reorder results to produce the same format as before:
     #    {detector: {time_bin:{'weighted':{smeared/unsmeared: [rate vs energy bins]}}}}
-    result = {}
     fname_base = tarball_path[:tarball_path.rfind('.')]
     for det in rates_dict:
         #get the time bins
@@ -257,7 +261,7 @@ def collate(tarball_path, skip_plots=False, *, smearing=True):
     Parameters
     ----------
     tarball_path : str
-        Path of compressed .tar file produced e.g. by ``generate_time_series()`` or ``generate_fluence()``.
+        Path of compressed .tar file produced e.g. by generate.
     skip_plots: bool
         If False, it gives as output the plot of the energy distribution for each time bin and for each interaction channel.
     smearing: bool
