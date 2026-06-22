@@ -85,31 +85,8 @@ def _get_transformation(flavor_transformation: str):
     except KeyError:
         raise ValueError(f"Flavor transformation '{flavor_transformation}' not found.")
 
-def _get_model_class(model_type: str):
-    """Look up model class corresponding to the given model name.
 
-    Parameters
-    ---------
-    model_type : str
-        Model name
-
-    Returns
-    -------
-    Model class corresponding to the given model name
-    """    
-    models_dict = {}
-    modules_list = ["snewpy.models.base", "snewpy.models.ccsn", "snewpy.models.ccsn_loaders",
-                    "snewpy.models.extended", "snewpy.models.presn", "snewpy.models.presn_loaders"]
-    for module_name in modules_list:
-        module = importlib.import_module(module_name)
-        models_dict.update({k:v for k,v in vars(module).items() if isclass(v)})
-
-    try:
-        return models_dict[model_type]
-    except KeyError:
-        raise ValueError(f"Model '{model_type}' not found.")
-
-def generate_time_series(model_path, model_type, flavor_transformation, d, output_filename=None, ntbins=30, deltat=None, snmodel_dict={}):
+def generate(model, flavor_transformation, d, output_filename=None, tstart=None, tend=None, Emin=None, Emax=None):
     """Generate time series files in SNOwGLoBES format.
 
     This version will subsample the times in a supernova model, produce energy
@@ -117,105 +94,35 @@ def generate_time_series(model_path, model_type, flavor_transformation, d, outpu
 
     Parameters
     ----------
-    model_path : str
-        Input file containing neutrino flux information from supernova model.
-    model_type : str
-        Format of input file. Matches the name of the corresponding class in :py:mod:`snewpy.models`.
+    model : instance of a model class        
     flavor_transformation : str or instance of flavor transformation class  
         If a string, the class is found using the _get_transformation function
-    d : int or float
-        Distance to supernova in kpc.
-    output_filename : str or None
-        Name of output file. If ``None``, will be based on input file name.
-    ntbins : int
-        Number of time slices. Will be ignored if ``deltat`` is also given.
-    deltat : astropy.Quantity or None
-        Length of time slices.
-    snmodel_dict : dict
-        Additional arguments for setting up the supernova model. See documentation of relevant ``SupernovaModel`` subclass for available options. (Optional)
-
-    Returns
-    -------
-    str
-        Path of NumPy archive file with neutrino fluence data.
-    """
-    model_class = _get_model_class(model_type)
-
-    # if flavor_transformation is a string, find the appropriate class
-    if isinstance(flavor_transformation, str):
-        flavor_transformation = _get_transformation(flavor_transformation)
-
-    model_dir, model_file = os.path.split(os.path.abspath(model_path))
-    snmodel = model_class(model_path, **snmodel_dict)
-
-    # Subsample the model time. Default to 30 time slices.
-    tmin = snmodel.get_time()[0]
-    tmax = snmodel.get_time()[-1]
-    if deltat is not None:
-        dt = deltat
-        ntbins = int((tmax-tmin)/dt)
-    else:
-        dt = (tmax - tmin) / (ntbins+1)
-
-    times = np.arange(tmin/u.s, tmax/u.s, dt/u.s)*u.s
-    energy = np.linspace(0, 100, 501) * u.MeV
-    flux = snmodel.get_flux(t=times, E=energy,  distance=d, flavor_xform=flavor_transformation)
-    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energy)
-    #save resulting fluence to file
-    if output_filename is not None:
-        tfname = output_filename + '.npz'
-    else:
-        model_file_root, _ = os.path.splitext(model_file)  # strip extension (if present)
-        tfname = f'{model_file_root}'+str(flavor_transformation)+f'{tmin:.3f},{tmax:.3f},{ntbins:d}-{d:.1f}.npz'
-    fluence.save(tfname)
-    return tfname
-    
-
-def generate_fluence(model_path, model_type, flavor_transformation, d, output_filename=None, tstart=None, tend=None, snmodel_dict={}):
-    """Generate fluence files in SNOwGLoBES format.
-
-    This version will subsample the times in a supernova model, produce energy
-    tables expected by SNOwGLoBES, and compress the output into a tarfile.
-
-    Parameters
-    ----------
-    model_path : str
-        Input file containing neutrino flux information from supernova model.
-    model_type : str
-        Format of input file. Matches the name of the corresponding class in :py:mod:`snewpy.models`.
-    flavor_transformation : str or instance of flavor transformation class  
-        If a string, the class is found using the _get_transformation function
-    d : int or float
-        Distance to supernova in kpc.
+    d : astropy Quantity 
+        Distance to supernova
     output_filename : str or None
         Name of output file. If ``None``, will be based on input file name.
     tstart : astropy.Quantity or None
         Start of time interval to integrate over, or list of start times of the time series bins.
     tend : astropy.Quantity or None
-        End of time interval to integrate over, or list of end times of the time series bins.
-    snmodel_dict : dict
-        Additional arguments for setting up the supernova model. See documentation of relevant ``SupernovaModel`` subclass for available options. (Optional)
+        End of time interval to integrate over, or list of end times of the time series bins.        
+    Emin : astropy.Quantity or None
+        Minimum energy for the spectrum, or list of minimum energy for energy bins
+    Emax : astropy.Quantity or None    
+        Maximum energy for the spectrum, or list of maximum energy for energy bins    
+        
 
     Returns
     -------
     str
         Path of NumPy archive file with neutrino fluence data.
     """
-    try:
-        model_class = getattr(snewpy.models.ccsn_loaders, model_type)
-    except AttributeError as e:
-        logging.warn(e)
-        model_class = getattr(snewpy.models.ccsn, model_type)
 
     # if flavor_transformation is a string, find the appropriate class
     if isinstance(flavor_transformation, str):
         flavor_transformation = _get_transformation(flavor_transformation)
 
-    model_dir, model_file = os.path.split(os.path.abspath(model_path))
-    snmodel = model_class(model_path, **snmodel_dict)
-
-    #set the timings up
-    #default if inputs are None: full time window of the model
+    # set the timings up
+    # default if inputs are None: full time window of the model
     times = None
     if tstart is not None and tend is not None:
         try:
@@ -227,23 +134,36 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
             #in case we have single values
             times = u.Quantity([tstart,tend])
         times.sort()
-
-    #energy with 0.2 MeV binning
-    energy   = np.arange(0, 101, 0.2) << u.MeV
-    #energy bins similar to SNOwGLoBES
-    energy_t = (np.linspace(0, 100, 201)+0.25) << u.MeV 
-    flux = snmodel.get_flux(t=snmodel.get_time(), E=energy,  distance=d, flavor_xform=flavor_transformation)
-    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energy_t)
-    times = fluence.time
-    #store the energy bin centers instead of the edges
-    if output_filename is not None:
-        tfname = output_filename+'.npz'
     else:
-        model_file_root, _ = os.path.splitext(model_file)  # strip extension (if present)
-        tfname = f'{model_file_root}'+str(flavor_transformation)+f'.{times[0]:.3f},{times[1]:.3f},{len(times)-1:d}-{d:.1f}.npz'
+        times = model.get_times()
 
-    fluence.save(tfname)
+    # set up energies
+    # default is 0 to 100 MeV in steps of 200 keV
+    energies = None    
+    if Emin is not None and Emax is not None:
+        try:
+            #in case we have arrays: join them together
+            energies = np.append(Emin, Emax)
+            #and get rid of the duplicates with 1e-10 tolerance
+            energies = np.unique(energies.round(decimals=10))
+        except:
+            #in case we have single values
+            energies = u.Quantity([Emin,Emax])
+    else:        
+        energies = np.arange(0, 100, 0.2) << u.MeV
+
+    flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
+
+    #save resulting fluence to file
+    if output_filename is not None:
+        tfname = output_filename + '.npz'
+    else:
+        model_file_root, _ = os.path.splitext(model.filename)  # strip extension (if present)
+        tfname = f'{model_file_root}'+str(flavor_transformation)+f'{tmin:.3f},{tmax:.3f},{ntbins:d}-{d:.1f}.npz'
+    flux.save(tfname)
+    
     return tfname
+
 
 
 def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effects=True):
