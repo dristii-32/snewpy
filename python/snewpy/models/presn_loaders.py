@@ -61,6 +61,9 @@ class Odrzywolek_2010(SupernovaModel):
                 # nuX/nuE ratio from Odrzywolek paper: (arXiv:astro-ph/0311012)
                 self.factor[f] = 0.19
         time = -df.index.to_numpy() << u.s
+
+        self.filename = os.path.basename(filename)
+        
         super().__init__(time, metadata)
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -104,6 +107,9 @@ class Patton_2017(SupernovaModel):
         self.interpolated = _interp_TE(
             times, energies, self.array, ax_t=1, ax_e=2
         )
+
+        self.filename = os.path.basename(filename)
+        
         super().__init__(-times << u.hour, metadata)
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -140,6 +146,9 @@ class Kato_2017(SupernovaModel):
         self.interpolated = _interp_TE(
             times, energies, self.array, ax_t=1, ax_e=2
         )
+
+        self.filename = os.path.basename(path)
+        
         super().__init__(-times << u.s, metadata)
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -178,6 +187,9 @@ class Yoshida_2016(SupernovaModel):
         self.interpolated = _interp_TE(
             times, energies, dNdEdT, ax_t=1, ax_e=2
         )
+
+        self.filename = os.path.basename(filename)
+        
         super().__init__(-times << u.s, metadata)
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -224,6 +236,9 @@ class Myers_2026(SupernovaModel):
         self.interpolated = _interp_TE(
             np.abs(times), energies, dNdEdT, ax_t=1, ax_e=2
         )
+
+        self.filename = os.path.basename(filename)
+        
         super().__init__(times << u.hour, metadata)
 
     @classmethod
