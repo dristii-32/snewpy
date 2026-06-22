@@ -86,6 +86,9 @@ class GarchingArchiveModel(PinchedModel):
                 'Progenitor mass': float(os.path.basename(filename).split('s')[1].split('c')[0]) * u.Msun,
                 'EOS': eos,
             }
+
+        self.filename = os.path.basename(filename)
+        
         super().__init__(simtab, metadata)
 
 class Nakazato_2013(PinchedModel):
@@ -108,6 +111,7 @@ class Nakazato_2013(PinchedModel):
         simtab = Table.read(datafile)
 
         self.filename = os.path.basename(filename)
+        
         super().__init__(simtab, metadata)
 
 
@@ -159,6 +163,8 @@ class OConnor_2013(PinchedModel):
         simtab['ALPHA_NU_X'] = (2.0 * simtab['E_NU_X'] ** 2 - simtab['RMS_NU_X'] ** 2) / (
                 simtab['RMS_NU_X'] ** 2 - simtab['E_NU_X'] ** 2)
 
+        self.filename = os.path.basename(filename)
+        
         # note, here L_NU_X is already divided by 4
         super().__init__(simtab, metadata)
 
@@ -249,7 +255,6 @@ class Warren_2020(PinchedModel):
         simtab['ALPHA_NU_X'] = (2.0 * simtab['E_NU_X'] ** 2 - simtab['RMS_NU_X'] ** 2) / \
             (simtab['RMS_NU_X'] ** 2 - simtab['E_NU_X'] ** 2)
 
-        # Set model metadata.
         self.filename = os.path.basename(filename)
 
         super().__init__(simtab, metadata)
@@ -292,6 +297,8 @@ class Fornax_2019(SupernovaModel):
         cache_flux : bool
             If true, pre-compute the flux on a fixed angular grid and store the values in a FITS file.
         """
+        self.filename = os.path.basename(filename)
+        
         # Open the requested filename using the model downloader.
         datafile = self.request_file(filename)
                 
@@ -665,7 +672,9 @@ class Fornax_2021(SupernovaModel):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
-        #extra parameters
+        self.filename = os.path.basename(filename)
+        
+        # extra parameters
         self.interpolation = "linear" #Scheme to interpolate in spectra ('nearest', 'linear').
         # Open the requested filename using the model downloader.
         datafile = self.request_file(filename)
@@ -782,7 +791,9 @@ class Fornax_2022(Fornax_2021):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
-        #extra parameters
+        self.filename = os.path.basename(filename)
+        
+        # extra parameters
         self.interpolation = "linear" #Scheme to interpolate in spectra ('nearest', 'linear').
         # Open the requested filename using the model downloader.
         datafile = self.request_file(filename)
@@ -833,7 +844,9 @@ class Fornax_2024(Fornax_2021):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
-        #extra parameters
+        self.filename = os.path.basename(filename)
+        
+        # extra parameters
         self.interpolation = 'linear' #Scheme to interpolate in spectra ('nearest', 'linear')
 
         # Open the requested filename using the model downloader.
@@ -1010,10 +1023,6 @@ class Fischer_2020(PinchedModel):
         datafile = self.request_file(filename)
         self.metadata = metadata
 
-        # Open the requested filename using the model downloader.
-        # datafile = _model_downloader.get_model_data(self.__class__.__name__, filename)
-        # self.filename = os.path.basename(filename)
-
         simtab = Table()
 
         tf = tarfile.open(datafile)
@@ -1064,4 +1073,6 @@ class Fischer_2020(PinchedModel):
 
         tf.close()
 
+        self.filename = os.path.basename(filename)
+        
         super().__init__(simtab, metadata)
