@@ -150,7 +150,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
             #in case we have single values
             energies = u.Quantity([Emin,Emax])
     else:        
-        energies = np.arange(0, 100, 0.2) << u.MeV
+        energies = np.linspace(0, 100, 501) * u.MeV
 
     flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
 
