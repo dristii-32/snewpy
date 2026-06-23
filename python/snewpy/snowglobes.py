@@ -40,6 +40,8 @@ from snewpy.flavor_transformation import *
 from snewpy.neutrino import MassHierarchy, MixingParameters
 from snewpy.rate_calculator import RateCalculator, center
 from snewpy.flux import Container
+from snewpy.utils import strip_extensions
+
 logger = logging.getLogger(__name__)
 
 def _get_transformation(flavor_transformation: str):
@@ -155,13 +157,13 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
     energies_t = (np.linspace(0, 100, 201) + 0.25 ) << u.MeV 
 
     flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
-    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies)    
+    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies)        
 
     #save resulting fluence to file
     if output_filename is not None:
         tfname = output_filename + '.npz'
-    else:
-        model_file_root, _ = os.path.splitext(model.filename)  # strip extension (if present)
+    else: # strip extension (if present in list of extensions to strip as defined in utils.strip_extensions)
+        model_file_root = strip_extensions(model.filename) 
         tfname = f'{model_file_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
     fluence.save(tfname)
     
