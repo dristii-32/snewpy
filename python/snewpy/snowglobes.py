@@ -260,7 +260,7 @@ def get_channel_label(c):
     else: 
         return re_chan_label.sub(gen_label, c) 
 
-def collate(tarball_path, smearing=True):
+def collate(tarball_path, *, detector_effects=True)):
     """Collates SNOwGLoBES output files and generates plots or returns a data table.
 
     Parameters
