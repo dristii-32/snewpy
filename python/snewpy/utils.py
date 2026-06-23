@@ -8,7 +8,7 @@ def expand_dimensions_to(a:np.ndarray, ndim:int)->np.ndarray:
     return a.reshape(new_shape)
     
 def strip_extensions(filename):
-    strip_extensions = ['.dat', '.txt', '.fits', '.h5', '.tar', '.gz', '.bz2']
+    strip_extensions = ['.dat', '.txt', '.fits', '.h5', '.tar', '.gz', '.bz2', '.npz', '.npy']
     # Split the filename into the base and the extension
     while True:
         filename, ext = os.path.splitext(filename)
