@@ -203,7 +203,7 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     flux = Container.load(tarball_path)
     
     for det in detector_input:
-        rates=rc.run(flux, det, detector_effects)
+        rates=rc.run(flux, det, detector_effects=detector_effects)
         #collect everything to pandas DataFrame, to make the output similar to previous
         rates_dict[det]={'weighted':{smearing : rates}}
         
