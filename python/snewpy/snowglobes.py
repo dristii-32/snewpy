@@ -154,7 +154,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
     else:        
         energies = np.linspace(0, 100, 501) << u.MeV
 
-    energies_t = (np.linspace(0, 100, 201) + 0.25 ) << u.MeV 
+    ###energies_t = (np.linspace(0, 100, 201) + 0.25 ) << u.MeV 
 
     flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
     fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies)        
@@ -165,7 +165,8 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
     else: # strip extension (if present in list of extensions to strip as defined in utils.strip_extensions)
         model_file_root = strip_extensions(model.filename) 
         tfname = f'{model_file_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
-    fluence.save(tfname)
+    ##fluence.save(tfname)
+    flux.save(tfname)    
     
     return tfname
 
