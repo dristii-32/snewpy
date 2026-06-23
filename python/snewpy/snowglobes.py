@@ -193,19 +193,19 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     if(isinstance(detector_input,str)):
         detector_input=[detector_input]
     rates_dict = {}
-    
+
+    if detector_effects == False:    
+        smearing = "unsmeared"
+    else:
+        smearing = "smeared"
+        
     #read the fluence
     flux = Container.load(tarball_path)
     
     for det in detector_input:
-        print("unsmeared")
-        rates_unsmeared=rc.run(flux, det, detector_effects=False)
-        print("smeared")        
-        rates_smeared=rc.run(flux, det, detector_effects=True)
+        rates=rc.run(flux, det, detector_effects)
         #collect everything to pandas DataFrame, to make the output similar to previous
-        rates_dict[det]={'weighted':{'unsmeared':rates_unsmeared,
-                                     'smeared':rates_smeared,
-                                     }}
+        rates_dict[det]={'weighted':{smearing : rates}}
         
     # reorder results to produce the same format as before:
     #    {detector: {time_bin:{'weighted':{smeared/unsmeared: [rate vs energy bins]}}}}
@@ -213,23 +213,20 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     fname_base = tarball_path[:tarball_path.rfind('.')]
     for det in rates_dict:
         #get the time bins
-        rates_unsmeared = rates_dict[det]['weighted']['unsmeared']
-        rates_smeared   = rates_dict[det]['weighted']['smeared']
+        rates = rates_dict[det]['weighted'][smearing]
 
         #get the first rate from the dict to access the energy and time binning
-        some_rate = list(rates_smeared.values())[0]
+        some_rate = list(rates.values())[0]
         tbins = center(some_rate.time)
         ebins = center(some_rate.energy)
         result[det] = {}
         for n_bin, t_bin in enumerate(tbins):
-            data = {**{(chan,'unsmeared','weighted'): rate.array[0,n_bin,:]
-                      for chan,rate in rates_unsmeared.items()},
-                    **{(chan,'smeared','weighted'): rate.array[0,n_bin,:] 
-                      for chan,rate in rates_smeared.items()}}
+            data = {**{(chan,smearing,'weighted'): rate.array[0,n_bin,:]
+                      for chan,rate in rates.items()} }
             
             df = pd.DataFrame(data, index = ebins)
             df.index.rename('E', inplace=True)
-            df.columns.rename(['channel','is_smeared','is_weighted'], inplace=True)
+            df.columns.rename(['channel','is_'+smearing,'is_weighted'], inplace=True)            
             df = df.reorder_levels([2,1,0], axis='columns')
             if len(tbins) > 1:
                 result[det][f'{fname_base}_{n_bin:01d}'] = df
@@ -237,7 +234,7 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
                 result[det][f'{fname_base}'] = df
         
     # save result to file for re-use in collate()
-    cache_file = f'{fname_base}.npy'
+    cache_file = f'{fname_base}'+smearing+'.npy'
     logging.info(f'Saving simulation results to {cache_file}')
     np.save(cache_file, result)
     return result
