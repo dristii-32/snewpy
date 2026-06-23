@@ -234,9 +234,10 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
                 result[det][f'{fname_base}'] = df
         
     # save result to file for re-use in collate()
-    cache_file = f'{fname_base}'+smearing+'.npy'
+    cache_file = f'{fname_base}.'+smearing+'.npy'
     logging.info(f'Saving simulation results to {cache_file}')
     np.save(cache_file, result)
+    
     return result
 
 
@@ -259,17 +260,13 @@ def get_channel_label(c):
     else: 
         return re_chan_label.sub(gen_label, c) 
 
-def collate(tarball_path, skip_plots=False, *, smearing=True):
+def collate(tarball_path):
     """Collates SNOwGLoBES output files and generates plots or returns a data table.
 
     Parameters
     ----------
     tarball_path : str
         Path of compressed .tar file produced e.g. by generate.
-    skip_plots: bool
-        If False, it gives as output the plot of the energy distribution for each time bin and for each interaction channel.
-    smearing: bool
-        Also consider results with smearing effects.
 
     Returns
     -------
@@ -298,28 +295,11 @@ def collate(tarball_path, skip_plots=False, *, smearing=True):
         t = t.unstack(levels)
         t = t.reorder_levels(table.columns.names, axis=1)
         return t
-        
-    def do_plot(table, params):
-        #plotting the events from given table
-        flux,det,weighted,smeared = params
-        for c in table.columns:
-            if table[c].max() > 0.1:
-                plt.plot(table[c],drawstyle='steps',label=get_channel_label(c), lw=1)
-        plt.xlim(right=0.10)
-        plt.ylim(bottom=0.10)
-        plt.yscale('log')
-        plt.legend(bbox_to_anchor=(0.5, 0.5, 0.5, 0.5), loc='best', borderaxespad=0)  # formats complete graph
-        smear_title = 'Interaction' if smeared=='unsmeared' else 'Detected'
-        plt.title(f'{flux} {det.capitalize()} {weighted.capitalize()} {smear_title} Events')
-        if smeared=='smeared':
-            plt.xlabel('Detected Energy (GeV)')
-            plt.ylabel('Events')  
-        else:
-            plt.xlabel('Neutrino Energy (GeV)')
-            plt.ylabel('Interaction Events')  
 
     #read the results from storage
     cache_file = tarball_path[:tarball_path.rfind('.')] + '.npy'
+    cache_file_stem, smearing = cache_file.rsplit('.',1)
+    
     logging.info(f'Reading tables from {cache_file}')
     tables = np.load(cache_file, allow_pickle=True).tolist()
     #This output is similar to what produced by:
@@ -327,7 +307,7 @@ def collate(tarball_path, skip_plots=False, *, smearing=True):
 
     #dict for old-style results, for backward compatibiity
     results = {}
-    smearing_options = ['smeared','unsmeared'] if smearing else ['unsmeared']
+    #smearing_options = ['smeared','unsmeared'] if smearing else ['unsmeared']
     #save collated files:
     with TemporaryDirectory(prefix='snowglobes') as tempdir:
         tempdir = Path(tempdir)
@@ -335,27 +315,20 @@ def collate(tarball_path, skip_plots=False, *, smearing=True):
             results[det] = {}
             for flux,t in tables[det].items():
                 t = aggregate_channels(t,nc='nc_',e='_e')
-                for w in ['weighted']:
-                    for s in smearing_options:
-                        table = t[w][s]
-                        filename_base = f'{flux}_{det}_events_{s}_{w}'
-                        filename = tempdir/f'Collated_{filename_base}.dat'
-                        #save results to text files
-                        with open(filename,'w') as f:
-                            f.write(table.to_string(float_format='%23.15g'))
-                        #format the results for the output
-                        header = 'Energy '+' '.join(list(table.columns))
-                        data = table.to_numpy().T
-                        index = table.index.to_numpy()
-                        data = np.concatenate([[index],data])
-                        results[filename.name] = {'header':header,'data':data}
-                        #optionally plot the results
-                        if skip_plots is False:
-                            plt.figure(dpi=300)
-                            do_plot(table,(flux,det,w,s))
-                            filename = tempdir/f'{filename_base}_log_plot.png'
-                            plt.savefig(filename, dpi=300, bbox_inches='tight')
-                            plt.close()
+
+                table = t['weighted'][smearing]
+                filename_base = f'{flux}_{det}_events_{smearing}_{'weighted'}'
+                filename = tempdir/f'Collated_{filename_base}.dat'
+            #save results to text files
+            with open(filename,'w') as f:
+                f.write(table.to_string(float_format='%23.15g'))
+                #format the results for the output
+                header = 'Energy '+' '.join(list(table.columns))
+                data = table.to_numpy().T
+                index = table.index.to_numpy()
+                data = np.concatenate([[index],data])
+                results[filename.name] = {'header':header,'data':data}
+ 
         #Make a tarfile with the condensed data files and plots
         output_name = Path(tarball_path).stem
         output_name = output_name[:output_name.rfind('.tar')]+'_SNOprocessed'
