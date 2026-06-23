@@ -221,13 +221,13 @@ class DetectionChannel:
             If `True`(default) apply the efficiency, otherwise assume 100% efficiency
         """
         rate = self._calc_interaction_rate(flux)
-        print(rate,"\n")
+        print("before\n",rate,"\n")
         if apply_smearing:
             if self.smearing is not None:
                 rate = self.smearing.apply(rate)
         if apply_efficiency:
                 rate = rate*self.efficiency
-        print(rate,"\n")            
+        print("after\n",rate,"\n")            
         return rate
         
     def _calc_interaction_rate(self, flux):
