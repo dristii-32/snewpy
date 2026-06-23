@@ -196,7 +196,6 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     
     #read the fluence
     fluence = Container.load(tarball_path)
-    print(fluence)
     
     for det in detector_input:
         rates_unsmeared=rc.run(fluence, det, detector_effects=False)
@@ -208,6 +207,7 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
         
     # reorder results to produce the same format as before:
     #    {detector: {time_bin:{'weighted':{smeared/unsmeared: [rate vs energy bins]}}}}
+    result = {}
     fname_base = tarball_path[:tarball_path.rfind('.')]
     for det in rates_dict:
         #get the time bins
