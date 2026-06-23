@@ -260,13 +260,15 @@ def get_channel_label(c):
     else: 
         return re_chan_label.sub(gen_label, c) 
 
-def collate(tarball_path):
+def collate(tarball_path, smearing=True):
     """Collates SNOwGLoBES output files and generates plots or returns a data table.
 
     Parameters
     ----------
     tarball_path : str
         Path of compressed .tar file produced e.g. by generate.
+    detector_effects : bool
+         Whether detector effects were included
 
     Returns
     -------
@@ -296,18 +298,21 @@ def collate(tarball_path):
         t = t.reorder_levels(table.columns.names, axis=1)
         return t
 
+    if detector_effects == False:    
+        smearing = "unsmeared"
+    else:
+        smearing = "smeared"
+        
     #read the results from storage
-    cache_file = tarball_path[:tarball_path.rfind('.')] + '.npy'
-    cache_file_stem, smearing = cache_file.rsplit('.',1)
+    cache_file = tarball_path+'.'+smearing+'.npy'
     
     logging.info(f'Reading tables from {cache_file}')
     tables = np.load(cache_file, allow_pickle=True).tolist()
     #This output is similar to what produced by:
-    #tables = simulate(SNOwGLoBESdir, tarball_path,detector_input)
+    #tables = simulate(SNOwGLoBESdir,tarball_path,detector_input)
 
     #dict for old-style results, for backward compatibiity
     results = {}
-    #smearing_options = ['smeared','unsmeared'] if smearing else ['unsmeared']
     #save collated files:
     with TemporaryDirectory(prefix='snowglobes') as tempdir:
         tempdir = Path(tempdir)
@@ -329,7 +334,7 @@ def collate(tarball_path):
                 data = np.concatenate([[index],data])
                 results[filename.name] = {'header':header,'data':data}
  
-        #Make a tarfile with the condensed data files and plots
+        #Make a tarfile with the condensed data files
         output_name = Path(tarball_path).stem
         output_name = output_name[:output_name.rfind('.tar')]+'_SNOprocessed'
         output_path = Path(tarball_path).parent/(output_name+'.tar.gz')
@@ -337,4 +342,5 @@ def collate(tarball_path):
             for file in tempdir.iterdir():
                 tar.add(file,arcname=output_name+'/'+file.name)
         logging.info(f'Created archive: {output_path}')
+        
     return results 
