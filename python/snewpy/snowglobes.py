@@ -196,20 +196,20 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     #read the fluence
     fluence = Container.load(tarball_path)
     for det in detector_input:
-        rates_smeared=rc.run(fluence, det, detector_effects=True)
         rates_unsmeared=rc.run(fluence, det, detector_effects=False)
+        rates_smeared=rc.run(fluence, det, detector_effects=True)
         #collect everything to pandas DataFrame, to make the output similar to previous
         rates_dict[det]={'weighted':{'unsmeared':rates_unsmeared,
-                                 'smeared':rates_smeared,
-                                }}
+                                     'smeared':rates_smeared,
+                                     }}
         
     # reorder results to produce the same format as before:
     #    {detector: {time_bin:{'weighted':{smeared/unsmeared: [rate vs energy bins]}}}}
     fname_base = tarball_path[:tarball_path.rfind('.')]
     for det in rates_dict:
         #get the time bins
-        rates_smeared   = rates_dict[det]['weighted']['smeared']
         rates_unsmeared = rates_dict[det]['weighted']['unsmeared']
+        rates_smeared   = rates_dict[det]['weighted']['smeared']
 
         #get the first rate from the dict to access the energy and time binning
         some_rate = list(rates_smeared.values())[0]
