@@ -304,7 +304,8 @@ def collate(tarball_path, *, detector_effects=True):
         smearing = "smeared"
         
     #read the results from storage
-    cache_file = tarball_path+'.'+smearing+'.npy'
+    fname_base = tarball_path[:tarball_path.rfind('.')]    
+    cache_file = fname_base+'.'+smearing+'.npy'
     
     logging.info(f'Reading tables from {cache_file}')
     tables = np.load(cache_file, allow_pickle=True).tolist()
