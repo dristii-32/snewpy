@@ -325,15 +325,15 @@ def collate(tarball_path, *, detector_effects=True):
                 table = t['weighted'][smearing]
                 filename_base = f'{flux}_{det}_events_{smearing}_{'weighted'}'
                 filename = tempdir/f'Collated_{filename_base}.dat'
-            #save results to text files
-            with open(filename,'w') as f:
-                f.write(table.to_string(float_format='%23.15g'))
-                #format the results for the output
-                header = 'Energy '+' '.join(list(table.columns))
-                data = table.to_numpy().T
-                index = table.index.to_numpy()
-                data = np.concatenate([[index],data])
-                results[filename.name] = {'header':header,'data':data}
+                #save results to text files
+                with open(filename,'w') as f:
+                    f.write(table.to_string(float_format='%23.15g'))
+                    # format the results for the output
+                    header = 'Energy '+' '.join(list(table.columns))
+                    data = table.to_numpy().T
+                    index = table.index.to_numpy()
+                    data = np.concatenate([[index],data])
+                    results[filename.name] = {'header':header,'data':data}
  
         #Make a tarfile with the condensed data files
         output_name = Path(tarball_path).stem
