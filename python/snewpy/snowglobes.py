@@ -150,12 +150,12 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
             #in case we have single values
             energies = u.Quantity([Emin,Emax])
     else:        
-        energies = np.arange(0, 101, 0.2) << u.MeV
+        energies = np.linspace(0, 100, 501) << u.MeV
 
-    energies_t = np.linspace(0, 100, 201) + 0.25*u.MeV 
+    energies_t = (np.linspace(0, 100, 201) + 0.25 ) << u.MeV 
 
     flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
-    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies_t)    
+    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies)    
 
     #save resulting fluence to file
     if output_filename is not None:
