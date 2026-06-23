@@ -12,7 +12,6 @@ def strip_extensions(filename):
     # Split the filename into the base and the extension
     while True:
         filename, ext = os.path.splitext(filename)
-        print(filename,ext)
         if ext.lower() not in strip_extensions:
             filename += ext
             break    
