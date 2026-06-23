@@ -195,6 +195,8 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     
     #read the fluence
     fluence = Container.load(tarball_path)
+    print(fluence)
+    
     for det in detector_input:
         rates_unsmeared=rc.run(fluence, det, detector_effects=False)
         rates_smeared=rc.run(fluence, det, detector_effects=True)
