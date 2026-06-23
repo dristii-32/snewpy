@@ -200,6 +200,8 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     for det in detector_input:
         rates_unsmeared=rc.run(fluence, det, detector_effects=False)
         rates_smeared=rc.run(fluence, det, detector_effects=True)
+        print(rates_unsmeared,"\n")
+        print(rates_smeared)        
         #collect everything to pandas DataFrame, to make the output similar to previous
         rates_dict[det]={'weighted':{'unsmeared':rates_unsmeared,
                                      'smeared':rates_smeared,
