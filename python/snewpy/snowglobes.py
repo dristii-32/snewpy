@@ -229,7 +229,7 @@ def simulate(SNOwGLoBESdir, flux_file, detector="all", *, detector_effects=True)
     if detector == 'all':
         rates_filename = f'{fname_base}.'+smearing+'.npy'        
     else:
-        rates_filename = f'{fname_base}.'+smearing+f'.{detector}.npy'
+        rates_filename = f'{fname_base}.{detector_}'+smearing+'.npy'
         
     logging.info(f'Saving simulation results to {rates}')
     np.save(rates_filename, tables)
