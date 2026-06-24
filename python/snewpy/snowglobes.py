@@ -198,7 +198,7 @@ def simulate(SNOwGLoBESdir, flux_file, detector="all", *, detector_effects=True)
     #read the flux in the flux_file
     flux = Container.load(flux_file)
     
-    for det in detector_input:
+    for det in detector:
         rates_dict[det] = { rc.run(flux, det, detector_effects=detector_effects) }
         
     # reorder results
