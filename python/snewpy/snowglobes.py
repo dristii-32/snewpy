@@ -199,46 +199,43 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     else:
         smearing = "smeared"
         
-    #read the fluence
+    #read the flux in the tarball
     flux = Container.load(tarball_path)
     
     for det in detector_input:
         rates=rc.run(flux, det, detector_effects=detector_effects)
-        #collect everything to pandas DataFrame, to make the output similar to previous
-        rates_dict[det]={'weighted':{smearing : rates}}
+        rates_dict[det]={rates}
         
-    # reorder results to produce the same format as before:
-    #    {detector: {time_bin:{'weighted':{smeared/unsmeared: [rate vs energy bins]}}}}
-    result = {}
+    # reorder results
+    #    {detector: {time_bin:[rate vs energy bins]}}
+    tables = {}
     fname_base = tarball_path[:tarball_path.rfind('.')]
     for det in rates_dict:
         #get the time bins
-        rates = rates_dict[det]['weighted'][smearing]
+        rates = rates_dict[det]
 
         #get the first rate from the dict to access the energy and time binning
         some_rate = list(rates.values())[0]
         tbins = center(some_rate.time)
         ebins = center(some_rate.energy)
-        result[det] = {}
+        tables[det] = {}
         for n_bin, t_bin in enumerate(tbins):
-            data = {**{(chan,smearing,'weighted'): rate.array[0,n_bin,:]
-                      for chan,rate in rates.items()} }
+            data = {**{chan: rate.array[0,n_bin,:] for chan,rate in rates.items()} }
             
             df = pd.DataFrame(data, index = ebins)
             df.index.rename('E', inplace=True)
-            df.columns.rename(['channel','is_'+smearing,'is_weighted'], inplace=True)            
-            df = df.reorder_levels([2,1,0], axis='columns')
+            df.columns.rename(['channel'], inplace=True)            
             if len(tbins) > 1:
-                result[det][f'{fname_base}_{n_bin:01d}'] = df
+                tables[det][f'{fname_base}_{n_bin:01d}'] = df
             else:
-                result[det][f'{fname_base}'] = df
+                tables[det][f'{fname_base}'] = df
         
     # save result to file for re-use in collate()
     cache_file = f'{fname_base}.'+smearing+'.npy'
     logging.info(f'Saving simulation results to {cache_file}')
-    np.save(cache_file, result)
+    np.save(cache_file, tables)
     
-    return result
+    return tables, cache_file
 
 
 re_chan_label = re.compile(r'nu(e|mu|tau)(bar|)_([A-Z][a-z]*)(\d*)_?(.*)')
