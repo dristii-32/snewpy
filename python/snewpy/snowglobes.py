@@ -328,12 +328,12 @@ def collate(tarball_path, *, detector_effects=True):
                 #save results to text files
                 with open(filename,'w') as f:
                     f.write(table.to_string(float_format='%23.15g'))
-                    # format the results for the output
-                    header = 'Energy '+' '.join(list(table.columns))
-                    data = table.to_numpy().T
-                    index = table.index.to_numpy()
-                    data = np.concatenate([[index],data])
-                    results[filename.name] = {'header':header,'data':data}
+                # format the results for the output
+                header = 'Energy '+' '.join(list(table.columns))
+                data = table.to_numpy().T
+                index = table.index.to_numpy()
+                data = np.concatenate([[index],data])
+                results[filename.name] = {'header':header,'data':data}
  
         #Make a tarfile with the condensed data files
         output_name = Path(tarball_path).stem
