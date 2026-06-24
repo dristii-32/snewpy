@@ -188,7 +188,6 @@ def simulate(SNOwGLoBESdir, flux_file, detector="all", *, detector_effects=True)
         detector = list(rc.detectors)
     if(isinstance(detector,str)):
         detector=[detector]
-    rates_dict = {}
 
     if detector_effects == False:    
         smearing = "unsmeared"
@@ -201,31 +200,9 @@ def simulate(SNOwGLoBESdir, flux_file, detector="all", *, detector_effects=True)
     rates_dict = {}
     for det in detector:
         rates = rc.run(flux, det, detector_effects=detector_effects)
-        rates_dict[det] = { rates }
-        
-    # reorder results
-    #    {detector: {time_bin:[rate vs energy bins]}}
-    tables = {}
-    fname_base = flux_file[:flux_file.rfind('.')]
-    for det in rates_dict:
-        #get the time bins
-        rates = rates_dict[det]
+        rates_dict[det] = { rates.time : rates }
 
-        #get the first rate from the dict to access the energy and time binning
-        some_rate = list(rates.values())[0]
-        tbins = center(some_rate.time)
-        ebins = center(some_rate.energy)
-        tables[det] = {}
-        for n_bin, t_bin in enumerate(tbins):
-            data = {**{chan: rate.array[0,n_bin,:] for chan,rate in rates[det].items()} }
-            
-            df = pd.DataFrame(data, index = ebins)
-            df.index.rename('E', inplace=True)
-            df.columns.rename(['channel'], inplace=True)            
-            if len(tbins) > 1:
-                tables[det][f'{fname_base}.'+smearing+f'_{n_bin:01d}'] = df
-            else:
-                tables[det][f'{fname_base}.'+smearing] = df
+    fname_base = flux_file[:flux_file.rfind('.')]   
         
     # save result to file for re-use in collate()
     if detector == 'all':
