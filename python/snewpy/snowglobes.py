@@ -197,23 +197,21 @@ def simulate(SNOwGLoBESdir, flux_file, detector="all", *, detector_effects=True)
     #read the flux in the flux_file
     flux = Container.load(flux_file)
 
-    rates_dict = {}
+    rates = {}
     for det in detector:
-        rates = rc.run(flux, det, detector_effects=detector_effects)
-        rates_dict[det] = { rates.time : rates }
-
-    fname_base = flux_file[:flux_file.rfind('.')]   
-        
+        rates[det] = rc.run(flux, det, detector_effects=detector_effects)
+                
     # save result to file for re-use in collate()
+    fname_base = flux_file[:flux_file.rfind('.')]               
     if detector == 'all':
         rates_filename = f'{fname_base}.'+smearing+'.npy'        
     else:
         rates_filename = f'{fname_base}.{detector_}'+smearing+'.npy'
         
     logging.info(f'Saving simulation results to {rates}')
-    np.save(rates_filename, tables)
+    np.save(rates_filename, rates)
     
-    return tables, rates_filename
+    return rates, rates_filename
 
 
 re_chan_label = re.compile(r'nu(e|mu|tau)(bar|)_([A-Z][a-z]*)(\d*)_?(.*)')
