@@ -126,7 +126,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
 
     # set the timings up
     # default if inputs are None: full time window of the model
-    times = []
+    times = np.array([])
     if tstart is not None:
         try: 
             times.append(tstart)
