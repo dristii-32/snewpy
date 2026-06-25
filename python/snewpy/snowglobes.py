@@ -194,9 +194,9 @@ def simulate(SNOwGLoBESdir, flux_filename, detector="all", *, detector_effects=T
     """
     rc = RateCalculator(base_dir=SNOwGLoBESdir)
     if detector == 'all':
-        detector = list(rc.detectors)
+        detector_list = list(rc.detectors)
     if(isinstance(detector,str)):
-        detector=[detector]
+        detector_list=[detector]
 
     if detector_effects == False:    
         smearing = "unsmeared"
@@ -207,15 +207,15 @@ def simulate(SNOwGLoBESdir, flux_filename, detector="all", *, detector_effects=T
     flux = Container.load(flux_filename)
 
     rates = {}
-    for det in detector:
+    for det in detector_list:        
         rates[det] = rc.run(flux, det, detector_effects=detector_effects)
                 
     # save result to file for re-use in collate()
     fname_base = flux_filename[:flux_filename.rfind('.')]               
     if detector == 'all':
-        rates_filename = f'{fname_base}.'+smearing+'.npy'        
+        rates_filename = f'{fname_base}.all'+smearing+'.npy'        
     else:
-        rates_filename = f'{fname_base}.{detector_}'+smearing+'.npy'
+        rates_filename = f'{fname_base}.{detector}_'+smearing+'.npy'
         
     logging.info(f'Saving detector simulation event rates to {rates_filename}')
     np.save(rates_filename, rates)
