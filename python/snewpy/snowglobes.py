@@ -126,19 +126,17 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
 
     # set the timings up
     # default if inputs are None: full time window of the model
-    if tstart is not None:
-        times = np.array(tstart)        
+    if tstart is not None and tend is not None:
+        try: #in case we have arrays: join them together
+            times = np.append(tstart, tend)
+            #and get rid of the duplicates with 1e-10 tolerance
+            times = np.unique(np.round(times,decimals=10))
+        except: #in case we have single values
+            times = u.Quantity([tstart,tend])
+        times.sort()            
     else:
-        times = np.array(model.get_time()[0])
-
-    if tend is not None:
-        times = np.append(times,tend)
-    else:
-        times = np.append(times,model.get_time()[-1])
-
-    times.sort()
-    #get rid of the duplicates with 1e-10 tolerance
-    times = np.unique(np.round(times,decimals=10))
+        model_times = model.get_time()
+        times = np.array([model_times[0],model_times[-1]])
 
     # set up energies
     # default is 0 to 100 MeV in steps of 200 keV
