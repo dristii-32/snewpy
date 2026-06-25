@@ -126,19 +126,28 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
 
     # set the timings up
     # default if inputs are None: full time window of the model
-    times = None
-    if tstart is not None and tend is not None:
-        try:
-            #in case we have arrays: join them together
-            times = np.append(tstart, tend)
-            #and get rid of the duplicates with 1e-10 tolerance
-            times = np.unique(times.round(decimals=10))
-        except:
-            #in case we have single values
-            times = u.Quantity([tstart,tend])
-        times.sort()
+    times = []
+    if tstart is not None:
+        try: 
+            times.append(tstart)
+        except: #in case we have single values
+            times.append(u.Quantity([tstart]))
     else:
-        times = model.get_time()
+        model_times = model.get_time()
+        times.append(u.Quantity([model_times[0]]))
+
+    if tend is not None:
+        try: 
+            times.append(tend)
+        except: #in case we have single values
+            times.append(u.Quantity([tend]))
+    else:
+        model_times = model.get_time()
+        times.append(u.Quantity([model_times[-1]]))
+
+    times.sort()
+    #get rid of the duplicates with 1e-10 tolerance
+    times = np.unique(times.round(decimals=10))
 
     # set up energies
     # default is 0 to 100 MeV in steps of 200 keV
@@ -159,16 +168,16 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
 
     #save resulting flux to file
     if output_filename is not None:
-        fname = output_filename + '.npz'
+        flux_filename = output_filename + '.npz'
     else: # strip extension (if present in list of extensions to strip as defined in utils.strip_extensions)
-        fname_root = strip_extensions(model.filename) 
-        fname = f'{fname_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
-    flux.save(fname)    
+        flux_filename_root = strip_extensions(model.filename) 
+        flux_filename = f'{flux_filename_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+    flux.save(flux_filename)    
     
-    return fname
+    return flux, flux_filename
 
 
-def simulate(SNOwGLoBESdir, flux_file, detector="all", *, detector_effects=True):
+def simulate(SNOwGLoBESdir, flux_filename, detector="all", *, detector_effects=True):
     """Calculate expected event rates for the given neutrino flux files and the given (set of) SNOwGLoBES detector(s).
     These event rates are given as a function of the neutrino energy and time, for each interaction channel.
 
@@ -176,8 +185,8 @@ def simulate(SNOwGLoBESdir, flux_file, detector="all", *, detector_effects=True)
     ----------
     SNOwGLoBESdir : str or None
         Path to SNOwGLoBES directory. Set to ``None`` to automatically use the latest supported SNOwGLoBES release.
-    flux_file : str
-        Path of npz file produced e.g. by generate.
+    flux_filename : str
+        Path of npz file produced by generate.
     detector : str
         Name of detector. If ``"all"``, will use all detectors supported by SNOwGLoBES.
     detector_effects : bool
@@ -195,20 +204,20 @@ def simulate(SNOwGLoBESdir, flux_file, detector="all", *, detector_effects=True)
         smearing = "smeared"
         
     #read the flux in the flux_file
-    flux = Container.load(flux_file)
+    flux = Container.load(flux_filename)
 
     rates = {}
     for det in detector:
         rates[det] = rc.run(flux, det, detector_effects=detector_effects)
                 
     # save result to file for re-use in collate()
-    fname_base = flux_file[:flux_file.rfind('.')]               
+    fname_base = flux_filename[:flux_filename.rfind('.')]               
     if detector == 'all':
         rates_filename = f'{fname_base}.'+smearing+'.npy'        
     else:
         rates_filename = f'{fname_base}.{detector_}'+smearing+'.npy'
         
-    logging.info(f'Saving simulation results to {rates}')
+    logging.info(f'Saving detector simulation event rates to {rates_filename}')
     np.save(rates_filename, rates)
     
     return rates, rates_filename
@@ -218,7 +227,7 @@ re_chan_label = re.compile(r'nu(e|mu|tau)(bar|)_([A-Z][a-z]*)(\d*)_?(.*)')
 def get_channel_label(c):
     mapp = {'nc':'NeutralCurrent',
             'ibd':'Inverse Beta Decay',
-            'e':r'${\nu}_x+e^-$'}
+            'eES':r'${\nu}_x+e^-$'}
     def gen_label(m):
         flv,bar,Nuc,num,res = m.groups()
         if flv!='e':
