@@ -147,7 +147,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
 
     times.sort()
     #get rid of the duplicates with 1e-10 tolerance
-    times = np.unique(times.round(decimals=10))
+    times = np.unique(np.round(times,decimals=10))
 
     # set up energies
     # default is 0 to 100 MeV in steps of 200 keV
