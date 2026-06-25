@@ -127,22 +127,14 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
     # set the timings up
     # default if inputs are None: full time window of the model
     if tstart is not None:
-        try: 
-            times = np.array(tstart)
-        except: #in case we have single values
-            times = np.array(u.Quantity([tstart]))
+        times = np.array(tstart)        
     else:
-        model_times = model.get_time()
-        times = np.array([model_times[0]])
+        times = np.array(model.get_time()[0])
 
     if tend is not None:
-        try: 
-            times = np.append(times,tend)
-        except: #in case we have single values
-            times = np.append(times,u.Quantity([tend]))
+        times = np.append(times,tend)
     else:
-        model_times = model.get_time()
-        times = np.append(times,[model_times[-1]])
+        times = np.append(times,model.get_time()[-1])
 
     times.sort()
     #get rid of the duplicates with 1e-10 tolerance
