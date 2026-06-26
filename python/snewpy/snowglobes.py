@@ -39,7 +39,7 @@ import snewpy.models
 from snewpy.flavor_transformation import *
 from snewpy.neutrino import MassHierarchy, MixingParameters
 from snewpy.rate_calculator import RateCalculator, center
-from snewpy.flux import Container
+from snewpy.flux import Container, dNdT
 from snewpy.utils import strip_extensions
 
 logger = logging.getLogger(__name__)
@@ -211,7 +211,7 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
         else:
             rates_filename = f'{fname_base}.{detector}_'+smearing+'.npy'        
         logging.info(f'Saving detector simulation event rates to {rates_filename}')
-        np.save(rates_filename, rates)
+        rates.save(rates_filename)
     
     return rates, rates_filename
 
@@ -291,6 +291,6 @@ def collate(rates):
         # strip extension of original filename (if present in list of extensions to strip as defined in utils.strip_extensions)
         collated_rates_filename = strip_extensions(rates_filename) + '_collated.npz'
         logging.info(f'Saving collated tables to {rates}')
-        np.save(collated_rates_filename, collated_rates)
+        collated_rates.save(collated_rates_filename)
         
     return collated_rates, collated_rates_filename 
