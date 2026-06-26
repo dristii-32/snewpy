@@ -39,7 +39,7 @@ import snewpy.models
 from snewpy.flavor_transformation import *
 from snewpy.neutrino import MassHierarchy, MixingParameters
 from snewpy.rate_calculator import RateCalculator, center
-from snewpy.flux import Container, dNdT
+from snewpy.flux import Container
 from snewpy.utils import strip_extensions
 
 logger = logging.getLogger(__name__)
