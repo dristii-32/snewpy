@@ -135,8 +135,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
             times = u.Quantity([tstart,tend])
         times.sort()            
     else:
-        model_times = model.get_time()
-        times = u.Quantity([model_times[0],model_times[-1]])
+        times = u.Quantity([model.get_time()[0],model.get_time()[-1]])
 
     # set up energies
     # default is 0 to 100 MeV in steps of 200 keV
@@ -163,7 +162,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
         flux_filename = f'{flux_filename_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
     flux.save(flux_filename)    
     
-    return flux, flux_filename
+    return flux
 
 
 def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
@@ -200,20 +199,19 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
         flux_filename = None
 
     rates = {}
+    fname_base = flux_filename[:flux_filename.rfind('.')]    
+    rates_filenames = []
+    
     for det in detector_list:        
         rates[det] = rc.run(flux, det, detector_effects=detector_effects)
                 
-    if flux_filename is not None: 
-        # save result to file
-        fname_base = flux_filename[:flux_filename.rfind('.')]               
-        if detector == 'all':
-            rates_filename = f'{fname_base}.all'+smearing+'.npy'        
-        else:
-            rates_filename = f'{fname_base}.{detector}_'+smearing+'.npy'        
-        logging.info(f'Saving detector simulation event rates to {rates_filename}')
-        rates.save(rates_filename)
+        if flux_filename is not None: 
+            # save result to file
+            rates_filenames.append(f'{fname_base}.{det}_'+smearing+'.npy')
+            logging.info(f'Saving detector simulation event rates to {rates_filenames[-1]}')
+            rates[det].save(rates_filenames[-1])
     
-    return rates, rates_filename
+    return rates, rates_filenames
 
 
 re_chan_label = re.compile(r'nu(e|mu|tau)(bar|)_([A-Z][a-z]*)(\d*)_?(.*)')
@@ -271,10 +269,10 @@ def collate(rates):
         t = t.reorder_levels(table.columns.names, axis=1)
         return t
 
-    if isinstance(rates,str): #read the flux in the flux_file
-        rates_filename = rates
-        logging.info(f'Reading rates from {rates_filename}')
-        rates = Container.load(rates_filename, allow_pickle=True).tolist()
+    if isinstance(rates,[str]): #read the flux in the rates_files
+        rates_filenames = rates
+        logging.info(f'Reading rates from {rates_filenames}')
+        rates = Container.load(rates_filenames, allow_pickle=True).tolist()
     else:
         rates_filename = None
 
@@ -293,4 +291,4 @@ def collate(rates):
         logging.info(f'Saving collated tables to {rates}')
         collated_rates.save(collated_rates_filename)
         
-    return collated_rates, collated_rates_filename 
+    return collated_rates
