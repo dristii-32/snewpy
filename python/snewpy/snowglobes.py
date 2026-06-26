@@ -166,7 +166,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
     return flux, flux_filename
 
 
-def simulate(SNOwGLoBESdir, flux_filename, detector="all", *, detector_effects=True):
+def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     """Calculate expected event rates for the given neutrino flux files and the given (set of) SNOwGLoBES detector(s).
     These event rates are given as a function of the neutrino energy and time, for each interaction channel.
 
@@ -174,8 +174,8 @@ def simulate(SNOwGLoBESdir, flux_filename, detector="all", *, detector_effects=T
     ----------
     SNOwGLoBESdir : str or None
         Path to SNOwGLoBES directory. Set to ``None`` to automatically use the latest supported SNOwGLoBES release.
-    flux_filename : str
-        Path of npz file produced by generate.
+    flux : str or Flux Container object
+        if string, the file of that name will be opened
     detector : str
         Name of detector. If ``"all"``, will use all detectors supported by SNOwGLoBES.
     detector_effects : bool
@@ -192,22 +192,26 @@ def simulate(SNOwGLoBESdir, flux_filename, detector="all", *, detector_effects=T
     else:
         smearing = "smeared"
         
-    #read the flux in the flux_file
-    flux = Container.load(flux_filename)
+    if isinstance(flux,str): #read the flux in the flux_file
+        flux_filename = flux
+        logging.info(f'Reading fluxes from {flux_filename}')
+        flux = Container.load(flux_filename)
+    else:
+        flux_filename = None
 
     rates = {}
     for det in detector_list:        
         rates[det] = rc.run(flux, det, detector_effects=detector_effects)
                 
-    # save result to file for re-use in collate()
-    fname_base = flux_filename[:flux_filename.rfind('.')]               
-    if detector == 'all':
-        rates_filename = f'{fname_base}.all'+smearing+'.npy'        
-    else:
-        rates_filename = f'{fname_base}.{detector}_'+smearing+'.npy'
-        
-    logging.info(f'Saving detector simulation event rates to {rates_filename}')
-    np.save(rates_filename, rates)
+    if flux_filename is not None: 
+        # save result to file
+        fname_base = flux_filename[:flux_filename.rfind('.')]               
+        if detector == 'all':
+            rates_filename = f'{fname_base}.all'+smearing+'.npy'        
+        else:
+            rates_filename = f'{fname_base}.{detector}_'+smearing+'.npy'        
+        logging.info(f'Saving detector simulation event rates to {rates_filename}')
+        np.save(rates_filename, rates)
     
     return rates, rates_filename
 
@@ -231,13 +235,13 @@ def get_channel_label(c):
     else: 
         return re_chan_label.sub(gen_label, c) 
 
-def collate(rates_filename):
+def collate(rates):
     """Collates SNOwGLoBES output files and generates plots or returns a data table.
 
     Parameters
     ----------
-    rates_filename : str
-        File with cached rates from simulate 
+    rates : str or dictionary of d2NdEdT object 
+        if str, the file with that name will be opened
 
     Returns
     -------
@@ -266,23 +270,27 @@ def collate(rates_filename):
         t = t.unstack(levels)
         t = t.reorder_levels(table.columns.names, axis=1)
         return t
-        
-    #read the results from rates_file produced by simulate(SNOwGLoBESdir,tarball_path,detector_input)    
-    logging.info(f'Reading tables from {rates_filename}')
-    tables = np.load(rates_filename, allow_pickle=True).tolist()
 
-    collated_tables = {}
-    #make collated tables and save:
-    for det in tables:
-        collated_tables[det] = {}
+    if isinstance(rates,str): #read the flux in the flux_file
+        rates_filename = rates
+        logging.info(f'Reading rates from {rates_filename}')
+        rates = Container.load(rates_filename, allow_pickle=True).tolist()
+    else:
+        rates_filename = None
+
+    # make collated tables
+    collated_rates = {}
+    for det in rates:
+        collated_rates[det] = {}
         for flux,table in tables[det].items():
-            table = aggregate_channels(table,nc='nc_',eES='_e')
-            collated_tables[det][flux] = {table}
+            rates = aggregate_channels(rates,nc='nc_',eES='_e')
+            collated_rates[det] = { { flux : rates} }
 
-    # save resulting collated tables to file
-    # strip extension (if present in list of extensions to strip as defined in utils.strip_extensions)
-    collated_rates_filename = strip_extensions(rates_filename) + '_collated.npz'
-    logging.info(f'Saving collated tables to {rates}')
-    np.save(collated_rates_filename, collated_tables)
+    if rates_filename is not None:
+        # save resulting collated tables to file
+        # strip extension of original filename (if present in list of extensions to strip as defined in utils.strip_extensions)
+        collated_rates_filename = strip_extensions(rates_filename) + '_collated.npz'
+        logging.info(f'Saving collated tables to {rates}')
+        np.save(collated_rates_filename, collated_rates)
         
-    return collated_tables, collated_rates_filename 
+    return collated_rates, collated_rates_filename 
