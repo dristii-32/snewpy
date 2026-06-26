@@ -195,11 +195,11 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
         flux_filename = flux
         logging.info(f'Reading fluxes from {flux_filename}')
         flux = Container.load(flux_filename)
+        fname_base = flux_filename[:flux_filename.rfind('.')]        
     else:
         flux_filename = None
 
-    rates = {}
-    fname_base = flux_filename[:flux_filename.rfind('.')]    
+    rates = {}    
     rates_filenames = []
     
     for det in detector_list:        
