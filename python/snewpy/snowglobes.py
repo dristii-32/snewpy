@@ -136,7 +136,7 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
         times.sort()            
     else:
         model_times = model.get_time()
-        times = np.array([model_times[0],model_times[-1]])
+        times = u.Quantity([model_times[0],model_times[-1]])
 
     # set up energies
     # default is 0 to 100 MeV in steps of 200 keV
