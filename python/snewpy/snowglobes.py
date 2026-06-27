@@ -116,8 +116,8 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
 
     Returns
     -------
-    str
-        Path of NumPy archive file with neutrino fluence data.
+    flux container
+        defined in snewpy.flux
     """
 
     # if flavor_transformation is a string, find the appropriate class
@@ -200,18 +200,20 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
         flux_filename = None
 
     rates = {}    
-    rates_filenames = []
-    
+        
     for det in detector_list:        
         rates[det] = rc.run(flux, det, detector_effects=detector_effects)
                 
-        if flux_filename is not None: 
-            # save result to file
-            rates_filenames.append(f'{fname_base}.{det}_'+smearing+'.npy')
-            logging.info(f'Saving detector simulation event rates to {rates_filenames[-1]}')
-            rates[det].save(rates_filenames[-1])
+    if flux_filename is not None: 
+        # save result to file
+        if detector == 'all' 
+            rates_filename = fname_base+'.all_'+smearing+'.npz'
+        else:
+            rates_filename = fname_base+'.{detector}_'+smearing+'.npz'
+        logging.info(f'Saving detector simulation event rates to {rates_filenames[-1]}')
+        np.savez(rates_filename, **{det: np.array(rates[det]) for det in rates})
     
-    return rates, rates_filenames
+    return rates, rates_filename
 
 
 re_chan_label = re.compile(r'nu(e|mu|tau)(bar|)_([A-Z][a-z]*)(\d*)_?(.*)')
@@ -289,6 +291,6 @@ def collate(rates):
         # strip extension of original filename (if present in list of extensions to strip as defined in utils.strip_extensions)
         collated_rates_filename = strip_extensions(rates_filename) + '_collated.npz'
         logging.info(f'Saving collated tables to {rates}')
-        collated_rates.save(collated_rates_filename)
+        np.savez(collated_rates_filename, **{det: np.array(collated_rates[det]) for det in collated_rates})
         
     return collated_rates
