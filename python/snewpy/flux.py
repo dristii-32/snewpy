@@ -412,7 +412,7 @@ class _ContainerBase:
             all(self.flavor==other.flavor) and \
             all([np.allclose(self.axes[ax], other.axes[ax]) for ax in list(Axes)[1:]]):
                 result = self
-                self.array+other.array  
+                result.array = self.array+other.array
         return result
 
     def _is_full_flavor(self):
