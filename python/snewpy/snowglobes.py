@@ -274,7 +274,7 @@ def collate(rates):
     if isinstance(rates,[str]): #read the flux in the rates_files
         rates_filenames = rates
         logging.info(f'Reading rates from {rates_filenames}')
-        rates = Container.load(rates_filenames, allow_pickle=True).tolist()
+        rates = np.load(rates_filename)
     else:
         rates_filename = None
 
