@@ -251,27 +251,17 @@ def collate(rates):
         Dictionary of data tables: One table per time bin; each table contains in the first column the energy bins, in the remaining columns the number of events for each interaction channel in the detector.
     """
 
-    def aggregate_channels(table, **patterns):
-        #rearrange the table to have only channel column
-        levels = list(table.columns.names)
-        levels.remove('channel')
-        if pd.__version__ < '2.1':
-            t = table.stack(levels)
-        else:
-            # Avoid FutureWarning, see https://pandas.pydata.org/docs/whatsnew/v2.1.0.html#new-implementation-of-dataframe-stack
-            t = table.stack(levels, future_stack=True)
-        for name,pattern in patterns.items():
-            #get channels which contain `like`
-            t_sel = t.filter(like=pattern)
-            #sum over them and save to a separate column
-            t_agg = t_sel.sum(axis='columns')
-            #drop processed channels
-            t.drop(t_sel.columns, axis='columns',inplace=True)
-            t[name]=t_agg #fill the column
-        #return table with the original levels order
-        t = t.unstack(levels)
-        t = t.reorder_levels(table.columns.names, axis=1)
-        return t
+    def aggregate_channels(rates,patterns):
+        for name, pattern in patterns.items():
+            #get channels with names that contain the pattern
+            matches = [channel for channel in rates.keys() if re.search(pattern,channel)]
+            #sum over the matches
+            rates_agg = sum(rates[channel] for channel in matches)
+            #remove matching channels
+            del rates[channel for channel in matches]
+            #make a new entry with the aggregate 
+            rates[name] = table_agg
+        return table
 
     if isinstance(rates,str): #read the flux in the rates_files
         rates_filenames = rates
@@ -280,10 +270,10 @@ def collate(rates):
     else:
         rates_filename = None
 
-    # make collated tables
-    collated_rates = rates
+    # make collated rate table
+    collated_rates = {}
     for det in rates:
-        collated_rates = aggregate_channels(collated_rates,nc='nc_',eES='_e')
+        collated_rates[det] = aggregate_channels(rates[det],{'nc':'nc_','eES':'_e'})
 
     if rates_filename is not None:
         # save resulting collated tables to file
