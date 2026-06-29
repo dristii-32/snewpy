@@ -258,7 +258,8 @@ def collate(rates):
             #sum over the matches
             rates_agg = sum(rates[channel] for channel in matches)
             #remove matching channels
-            del rates[channel for channel in matches]
+            for channel in matches:
+                del rates[channel]
             #make a new entry with the aggregate 
             rates[name] = table_agg
         return table
