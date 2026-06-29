@@ -415,6 +415,9 @@ class _ContainerBase:
                 result.array = self.array+other.array
         return result
 
+    def __radd__(self,other):
+        return self
+
     def _is_full_flavor(self):
         return all(self.flavor==list(self.flavor_scheme))
                    
