@@ -413,10 +413,12 @@ class _ContainerBase:
             all([np.allclose(self.axes[ax], other.axes[ax]) for ax in list(Axes)[1:]]):
                 result = self
                 result.array = self.array+other.array
-        return result
+                return result
+        else:
+            return NotImplemented
 
     def __radd__(self,other):
-        return self
+        return self.__add__(other)
 
     def _is_full_flavor(self):
         return all(self.flavor==list(self.flavor_scheme))
