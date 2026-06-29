@@ -213,7 +213,7 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
         logging.info(f'Saving detector simulation event rates to {rates_filenames[-1]}')
         np.savez(rates_filename, **{det: np.array(rates[det]) for det in rates})
     
-    return rates, rates_filename
+    return rates
 
 
 re_chan_label = re.compile(r'nu(e|mu|tau)(bar|)_([A-Z][a-z]*)(\d*)_?(.*)')
@@ -282,9 +282,9 @@ def collate(rates):
     collated_rates = {}
     for det in rates:
         collated_rates[det] = {}
-        for flux,table in tables[det].items():
+        for channel in tables[det].items():
             rates = aggregate_channels(rates,nc='nc_',eES='_e')
-            collated_rates[det] = { { flux : rates} }
+        collated_rates = rates
 
     if rates_filename is not None:
         # save resulting collated tables to file
