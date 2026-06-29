@@ -183,8 +183,10 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     rc = RateCalculator(base_dir=SNOwGLoBESdir)
     if detector == 'all':
         detector_list = list(rc.detectors)
-    if(isinstance(detector,str)):
-        detector_list=[detector]
+        elif(isinstance(detector,str)):
+            detector_list=[detector]
+        else:
+            detector_list = detector
 
     if detector_effects == False:    
         smearing = "unsmeared"
