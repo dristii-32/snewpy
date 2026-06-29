@@ -418,7 +418,7 @@ class _ContainerBase:
             return NotImplemented
 
     def __radd__(self,other):
-        return self.__add__(other)
+        return self
 
     def _is_full_flavor(self):
         return all(self.flavor==list(self.flavor_scheme))
