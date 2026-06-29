@@ -206,7 +206,7 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
                 
     if flux_filename is not None: 
         # save result to file
-        if detector == 'all' 
+        if detector == 'all': 
             rates_filename = fname_base+'.all_'+smearing+'.npz'
         else:
             rates_filename = fname_base+'.{detector}_'+smearing+'.npz'
