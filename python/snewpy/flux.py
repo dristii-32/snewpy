@@ -402,6 +402,19 @@ class _ContainerBase:
                  all([np.allclose(self.axes[ax], other.axes[ax]) for ax in list(Axes)[1:]])
         return result
 
+    def __add__(self,other):
+        # Overload the + operator        
+        # Check if the type of the right-side is same as self
+        if self.__class__==other.__class__ and \
+            self.unit == other.unit and \
+            self.flavor_scheme==other.flavor_scheme and \
+            len(self.flavor)==len(other.flavor) and \
+            all(self.flavor==other.flavor) and \
+            all([np.allclose(self.axes[ax], other.axes[ax]) for ax in list(Axes)[1:]]):
+                result = self
+                self.array+other.array  
+        return result
+
     def _is_full_flavor(self):
         return all(self.flavor==list(self.flavor_scheme))
                    
