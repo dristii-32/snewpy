@@ -271,7 +271,7 @@ def collate(rates):
         t = t.reorder_levels(table.columns.names, axis=1)
         return t
 
-    if isinstance(rates,[str]): #read the flux in the rates_files
+    if isinstance(rates,str): #read the flux in the rates_files
         rates_filenames = rates
         logging.info(f'Reading rates from {rates_filenames}')
         rates = np.load(rates_filename)
