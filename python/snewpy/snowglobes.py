@@ -218,25 +218,6 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     return rates
 
 
-re_chan_label = re.compile(r'nu(e|mu|tau)(bar|)_([A-Z][a-z]*)(\d*)_?(.*)')
-def get_channel_label(c):
-    mapp = {'nc':'NeutralCurrent',
-            'ibd':'Inverse Beta Decay',
-            'eES':r'${\nu}_x+e^-$'}
-    def gen_label(m):
-        flv,bar,Nuc,num,res = m.groups()
-        if flv!='e':
-            flv='\\'+flv
-        if bar:
-            bar='\\'+bar
-        s = f'${bar}{{\\nu}}_{flv}$ '+f'${{}}^{{{num}}}{Nuc}$ '+res
-        return s
-
-    if c in mapp:
-        return mapp[c]
-    else: 
-        return re_chan_label.sub(gen_label, c) 
-
 def collate(rates):
     """Collates SNOwGLoBES output files and generates plots or returns a data table.
 
@@ -261,8 +242,8 @@ def collate(rates):
             for channel in matches:
                 del rates[channel]
             #make a new entry with the aggregate 
-            rates[name] = table_agg
-        return table
+            rates[name] = rates_agg
+        return rates
 
     if isinstance(rates,str): #read the flux in the rates_files
         rates_filenames = rates
