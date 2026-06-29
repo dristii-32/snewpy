@@ -234,11 +234,11 @@ def collate(rates):
 
     def aggregate_channels(rates,patterns):
         for name, pattern in patterns.items():
-            #get channels with names that contain the pattern
+            #get channels in rates with names that contain the pattern
             matches = [channel for channel in rates.keys() if re.search(pattern,channel)]
             #sum over the matches
-            rates_agg = sum(rates[channel] for channel in matches)
-            #remove matching channels
+            rates_agg = np.sum(rates[channel] for channel in matches)
+            #remove matching channels from rates
             for channel in matches:
                 del rates[channel]
             #make a new entry with the aggregate 
