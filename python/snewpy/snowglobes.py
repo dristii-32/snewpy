@@ -279,12 +279,9 @@ def collate(rates):
         rates_filename = None
 
     # make collated tables
-    collated_rates = {}
+    collated_rates = rates
     for det in rates:
-        collated_rates[det] = {}
-        for channel in tables[det].items():
-            rates = aggregate_channels(rates,nc='nc_',eES='_e')
-        collated_rates = rates
+        collated_rates = aggregate_channels(collated_rates,nc='nc_',eES='_e')
 
     if rates_filename is not None:
         # save resulting collated tables to file
