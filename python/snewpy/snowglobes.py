@@ -249,7 +249,7 @@ def collate(rates):
     # make collated rate table
     collated_rates = {}
     for det in rates:
-        collated_rates[det] = aggregate_channels(rates[det],{'nc':'nc_','eES':'_e', 'coh_helm_Ar':r'coh_helm_.._Ar'})
+        collated_rates[det] = aggregate_channels(rates[det],{'nc':'nc_','eES':'_e', 'coh_helm_Ar':r'coh_helm_.*_Ar'})
 
     if rates_filename is not None:
         # save resulting collated tables to file
