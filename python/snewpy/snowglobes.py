@@ -167,7 +167,13 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
         Name of detector. If ``"all"``, will use all detectors supported by SNOwGLoBES.
     detector_effects : bool
          Whether to account for detector smearing and efficiency.
+         
+    Returns
+    -------
+    dict of dict of flux.Container objects, either dNdT or N
+        Dictionary of event rates / numbers: first dict key is detector type, second is channel 
     """
+
     rc = RateCalculator(base_dir=SNOwGLoBESdir)
     if detector == 'all':
         detector_list = list(rc.detectors)
@@ -183,14 +189,13 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
         
     if isinstance(flux,str): #read the flux in the file
         flux_filename = flux
-        logging.info(f'Reading fluxes from {flux_filename}')
+        logging.info(f'Reading fluxes / fluences from {flux_filename}')
         flux = Container.load(flux_filename)
         flux_filename_base = flux_filename[:flux_filename.rfind('.')]        
     else:
         flux_filename = None
 
-    rates = {}    
-        
+    rates = {}            
     for det in detector_list:        
         rates[det] = rc.run(flux, det, detector_effects=detector_effects)
                 
@@ -200,24 +205,24 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
             rates_filename = flux_filename_base+'.all_'+smearing+'.npz'
         else:
             rates_filename = flux_filename_base+'.{detector}_'+smearing+'.npz'
-        logging.info(f'Saving detector simulation event rates to {rates_filenames[-1]}')
+        logging.info(f'Saving detector simulation event rates / numbers to {rates_filenames}')
         np.savez(rates_filename, **{det: np.array(rates[det]) for det in rates})
     
     return rates
 
 
 def collate(rates):
-    """Collates SNOwGLoBES output files and generates plots or returns a data table.
+    """Collates event rates / numbers into distinct channels i.e. add all electron elastic scattering and NC channels
 
     Parameters
     ----------
-    rates : str or dictionary of d2NdEdT object 
+    rates : str or dictionary of flux.Container objects, dict key is detector type 
         if str, the file with that name will be opened
 
     Returns
     -------
-    dict
-        Dictionary of data tables: One table per time bin; each table contains in the first column the energy bins, in the remaining columns the number of events for each interaction channel in the detector.
+    dict of dict of flux.Container objects, either dNdT or N
+        Dictionary of event rates / numbers: first dict key is detector type, second is channel 
     """
 
     def aggregate_channels(rates,patterns):
