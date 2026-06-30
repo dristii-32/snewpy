@@ -235,7 +235,8 @@ def collate(rates):
             for channel in matches:
                 del rates[channel]
             #make a new entry with the aggregate 
-            rates[name] = rates_agg
+            if len(matches) > 0:
+                rates[name] = rates_agg
         return rates
 
     if isinstance(rates,str): #read the flux in the rates_files
