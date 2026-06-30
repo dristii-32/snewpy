@@ -410,9 +410,9 @@ class _ContainerBase:
             len(self.flavor)==len(other.flavor) and \
             all(self.flavor==other.flavor) and \
             all([np.allclose(self.axes[ax], other.axes[ax]) for ax in list(Axes)[1:]]):
-                result = self
-                result.array = self.array+other.array
-                return result
+                array = self.array+other.array
+                axes = list(self.axes)
+                return Container(array,*axes)
         else:
             return NotImplemented
 
