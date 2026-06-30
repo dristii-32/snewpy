@@ -134,7 +134,7 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
     # Technically this is a fluence but re-use name
     if len(times) > 1:
         flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
-        flux.integrate('time',limits=times)
+        flux = flux.integrate('time',limits=times)
     else:
         flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
 
