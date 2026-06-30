@@ -126,7 +126,6 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
 
     # set up energies
     # default is 0 to 100 MeV in steps of 200 keV
-    energies = None    
     if energies is None:
         energies = np.linspace(0, 100, 501) << u.MeV
     energies.sort()
@@ -139,16 +138,16 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
     else:
         flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
 
-    #save resulting flux to file
+    #save resulting flux or array of fluences to file
     if output_filename is not None:
         if Path(output_filename).suffix is not '.npz':
             flux_filename = output_filename + '.npz'
     else: # strip extension from model name (if present in list of extensions to strip as defined in utils.strip_extensions)
-        flux_filename_root = strip_extensions(model.filename) 
+        model_filename_root = strip_extensions(model.filename) 
         if len(times) > 1:
-            flux_filename = f'{flux_filename_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+            flux_filename = f'{model_filename_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
         else:
-            flux_filename = f'{flux_filename_root},'+str(flavor_transformation)+f',{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+            flux_filename = f'{model_filename_root},'+str(flavor_transformation)+f',{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
     flux.save(flux_filename)    
     
     return flux
@@ -182,11 +181,11 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     else:
         smearing = "smeared"
         
-    if isinstance(flux,str): #read the flux in the flux_file
+    if isinstance(flux,str): #read the flux in the file
         flux_filename = flux
         logging.info(f'Reading fluxes from {flux_filename}')
         flux = Container.load(flux_filename)
-        fname_base = flux_filename[:flux_filename.rfind('.')]        
+        flux_filename_base = flux_filename[:flux_filename.rfind('.')]        
     else:
         flux_filename = None
 
@@ -198,9 +197,9 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     if flux_filename is not None: 
         # save result to file
         if detector == 'all': 
-            rates_filename = fname_base+'.all_'+smearing+'.npz'
+            rates_filename = flux_filename_base+'.all_'+smearing+'.npz'
         else:
-            rates_filename = fname_base+'.{detector}_'+smearing+'.npz'
+            rates_filename = flux_filename_base+'.{detector}_'+smearing+'.npz'
         logging.info(f'Saving detector simulation event rates to {rates_filenames[-1]}')
         np.savez(rates_filename, **{det: np.array(rates[det]) for det in rates})
     
