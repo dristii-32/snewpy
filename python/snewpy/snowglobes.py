@@ -87,12 +87,10 @@ def _get_transformation(flavor_transformation: str):
     except KeyError:
         raise ValueError(f"Flavor transformation '{flavor_transformation}' not found.")
 
-
-def generate(model, flavor_transformation, d, output_filename=None, tstart=None, tend=None, Emin=None, Emax=None):
-    """Generate time series files in SNOwGLoBES format.
-
-    This version will subsample the times in a supernova model, produce energy
-    tables expected by SNOwGLoBES, and compress the output into a tarfile.
+        
+def generate(model, flavor_transformation, d, output_filename=None, times=None, energies=None):
+    """Generate a flux at a given time or array of fluences for array of time bins, for a given set of energies.
+    Flux / fluences will be output into a numpy npz file with either the filename provided or derived from the model name
 
     Parameters
     ----------
@@ -104,15 +102,11 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
     output_filename : str or None
         Stem of output file. If ``None``, will be based on input file name.
         The output file will be a npz file
-    tstart : astropy.Quantity or None
-        Start of time interval to integrate over, or list of start times of the time series bins.
-    tend : astropy.Quantity or None
-        End of time interval to integrate over, or list of end times of the time series bins.        
-    Emin : astropy.Quantity or None
-        Minimum energy for the spectrum, or list of minimum energy for energy bins
-    Emax : astropy.Quantity or None    
-        Maximum energy for the spectrum, or list of maximum energy for energy bins    
-        
+    times : astropy.Quantity or None
+        time to evaluate flux or array of time bin edges over which to compute the fluence
+        if None, use the full model time interval for the fluence
+    energies : astropy.Quantity or None
+        list of energy bin edges at which to compute the flux
 
     Returns
     -------
@@ -125,39 +119,31 @@ def generate(model, flavor_transformation, d, output_filename=None, tstart=None,
         flavor_transformation = _get_transformation(flavor_transformation)
 
     # set the timings up
-    # default if inputs are None: full time window of the model
-    if tstart is not None and tend is not None:
-        try: #in case we have arrays: join them together
-            times = np.append(tstart, tend)
-            #and get rid of the duplicates with 1e-10 tolerance
-            times = np.unique(np.round(times,decimals=10))
-        except: #in case we have single values
-            times = u.Quantity([tstart,tend])
-        times.sort()            
-    else:
+    # default if input is None, use full time window of the model
+    if times is None:
         times = u.Quantity([model.get_time()[0],model.get_time()[-1]])
+    times.sort()                    
 
     # set up energies
     # default is 0 to 100 MeV in steps of 200 keV
     energies = None    
-    if Emin is not None and Emax is not None:
-        try:
-            #in case we have arrays: join them together
-            energies = np.append(Emin, Emax)
-            #and get rid of the duplicates with 1e-10 tolerance
-            energies = np.unique(energies.round(decimals=10))
-        except:
-            #in case we have single values
-            energies = u.Quantity([Emin,Emax])
-    else:        
+    if energies is None:
         energies = np.linspace(0, 100, 501) << u.MeV
-
-    flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
+    energies.sort()
+    
+    # If an array of times are given (or None) inetrgate over time of each interval. 
+    # Technically this is a fluence but re-use name
+    if len(times) > 1:
+        flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
+        flux.integrate('time',limits=times)
+    else:
+        flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
 
     #save resulting flux to file
     if output_filename is not None:
-        flux_filename = output_filename + '.npz'
-    else: # strip extension (if present in list of extensions to strip as defined in utils.strip_extensions)
+        if Path(output_filename).suffix is not '.npz':
+            flux_filename = output_filename + '.npz'
+    else: # strip extension from model name (if present in list of extensions to strip as defined in utils.strip_extensions)
         flux_filename_root = strip_extensions(model.filename) 
         flux_filename = f'{flux_filename_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
     flux.save(flux_filename)    
