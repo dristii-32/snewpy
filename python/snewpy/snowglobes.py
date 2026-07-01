@@ -142,12 +142,11 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
     if output_filename is not None:
         if Path(output_filename).suffix is not '.npz':
             flux_filename = output_filename + '.npz'
-    else: # strip extension from model name (if present in list of extensions to strip as defined in utils.strip_extensions)
-        model_filename_root = strip_extensions(model.filename) 
+    else:
         if len(times) > 1:
-            flux_filename = f'{model_filename_root},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+            flux_filename = f'{model.name},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
         else:
-            flux_filename = f'{model_filename_root},'+str(flavor_transformation)+f',{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+            flux_filename = f'{model.name},'+str(flavor_transformation)+f',{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
     flux.save(flux_filename)    
     
     return flux
