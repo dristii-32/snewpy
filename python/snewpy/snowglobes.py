@@ -144,9 +144,9 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
             flux_filename = output_filename + '.npz'
     else:
         if len(times) > 1:
-            flux_filename = f'{model.name},'+str(flavor_transformation)+f',{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+            flux_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
         else:
-            flux_filename = f'{model.name},'+str(flavor_transformation)+f',{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+            flux_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
     flux.save(flux_filename)    
     
     return flux
