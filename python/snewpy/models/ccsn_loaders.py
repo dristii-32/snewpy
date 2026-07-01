@@ -87,8 +87,6 @@ class GarchingArchiveModel(PinchedModel):
                 'EOS': eos,
             }
 
-        self.filename = os.path.basename(filename)
-        
         super().__init__(simtab, metadata)
 
 class Nakazato_2013(PinchedModel):
@@ -109,8 +107,6 @@ class Nakazato_2013(PinchedModel):
         datafile = self.request_file(filename)
         # Read FITS table using the astropy reader.
         simtab = Table.read(datafile)
-
-        self.filename = os.path.basename(filename)
         
         super().__init__(simtab, metadata)
 
@@ -163,8 +159,6 @@ class OConnor_2013(PinchedModel):
         simtab['ALPHA_NU_X'] = (2.0 * simtab['E_NU_X'] ** 2 - simtab['RMS_NU_X'] ** 2) / (
                 simtab['RMS_NU_X'] ** 2 - simtab['E_NU_X'] ** 2)
 
-        self.filename = os.path.basename(filename)
-        
         # note, here L_NU_X is already divided by 4
         super().__init__(simtab, metadata)
 
@@ -206,8 +200,6 @@ class OConnor_2015(PinchedModel):
         simtab['L_NU_E'][simtab['L_NU_E'] < 0] = 1
         simtab['L_NU_E_BAR'][simtab['L_NU_E_BAR'] < 0] = 1
         simtab['L_NU_X'][simtab['L_NU_X'] < 0] = 1
-
-        self.filename = os.path.basename(filename)
 
         super().__init__(simtab, metadata)
 
@@ -255,8 +247,6 @@ class Warren_2020(PinchedModel):
         simtab['ALPHA_NU_X'] = (2.0 * simtab['E_NU_X'] ** 2 - simtab['RMS_NU_X'] ** 2) / \
             (simtab['RMS_NU_X'] ** 2 - simtab['E_NU_X'] ** 2)
 
-        self.filename = os.path.basename(filename)
-
         super().__init__(simtab, metadata)
 
 
@@ -283,8 +273,6 @@ class Kuroda_2020(PinchedModel):
             # There is no pinch parameter so use alpha=2.0.
             simtab[f'ALPHA_{f}'] = np.full_like(simtab[f'E_{f}'].value, 2.)
 
-        self.filename = os.path.basename(filename)
-
         super().__init__(simtab, metadata)
 
 class Fornax_2019(SupernovaModel):
@@ -297,13 +285,11 @@ class Fornax_2019(SupernovaModel):
         cache_flux : bool
             If true, pre-compute the flux on a fixed angular grid and store the values in a FITS file.
         """
-        self.filename = os.path.basename(filename)
         
         # Open the requested filename using the model downloader.
         datafile = self.request_file(filename)
                 
         # Set up model metadata.
-        self.filename = os.path.basename(filename)
         self.metadata = metadata
 
         self.dLdE_unit = 1e50 * u.erg/(u.s*u.MeV)
@@ -672,7 +658,6 @@ class Fornax_2021(SupernovaModel):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
-        self.filename = os.path.basename(filename)
         
         # extra parameters
         self.interpolation = "linear" #Scheme to interpolate in spectra ('nearest', 'linear').
@@ -791,7 +776,6 @@ class Fornax_2022(Fornax_2021):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
-        self.filename = os.path.basename(filename)
         
         # extra parameters
         self.interpolation = "linear" #Scheme to interpolate in spectra ('nearest', 'linear').
@@ -844,7 +828,6 @@ class Fornax_2024(Fornax_2021):
         filename : str
             Absolute or relative path to HDF5 file with model data.
         """
-        self.filename = os.path.basename(filename)
         
         # extra parameters
         self.interpolation = 'linear' #Scheme to interpolate in spectra ('nearest', 'linear')
@@ -934,8 +917,6 @@ class Mori_2023(PinchedModel):
 #            x = simtab[f'E2_{f.name}'] / simtab[f'E_{f.name}']**2
 #            simtab[f'ALPHA_{f.name}'] = (2-x) / (x-1)
 
-        self.filename = os.path.basename(filename)
-
         super().__init__(simtab, metadata)
 
 
@@ -975,8 +956,6 @@ class Takata_2025(PinchedModel):
             simtab[f'Erms_{f}'] = Erms << u.MeV
             simtab[f'ALPHA_{f}'] = alpha
 
-        self.filename = os.path.basename(filename)
-
         super().__init__(simtab, metadata)
         
 
@@ -1005,8 +984,6 @@ class Bugli_2021(PinchedModel):
             (simtab['RMS_NU_E_BAR']**2 - simtab['E_NU_E_BAR']**2)
         simtab['ALPHA_NU_X'] = (2.0*simtab['E_NU_X']**2 - simtab['RMS_NU_X']**2) / \
             (simtab['RMS_NU_X']**2 - simtab['E_NU_X']**2)
-
-        self.filename = os.path.basename(filename)
 
         super().__init__(simtab, metadata)
 
@@ -1072,7 +1049,5 @@ class Fischer_2020(PinchedModel):
             (simtab['RMS_NU_X_BAR'] ** 2 - simtab['E_NU_X_BAR'] ** 2)
 
         tf.close()
-
-        self.filename = os.path.basename(filename)
         
         super().__init__(simtab, metadata)
