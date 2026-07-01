@@ -253,7 +253,7 @@ def collate(rates):
                 'coh_klein-nystrand_Ar':r'coh_klein.*_Ar', 'coh_klein-nystrand_Ge':r'coh_klein.*_Ge', 'coh_klein-nystrand_Xe':r'coh_kelin.*_Xe'                
                }
     for det in rates:
-        collated_rates[det] = aggregate_channels(rates[det],patter)
+        collated_rates[det] = aggregate_channels(rates[det],patterns)
 
     if rates_filename is not None:
         # save resulting collated tables to file
