@@ -62,8 +62,6 @@ class Odrzywolek_2010(SupernovaModel):
                 self.factor[f] = 0.19
         time = -df.index.to_numpy() << u.s
 
-        self.filename = os.path.basename(filename)
-        
         super().__init__(time, metadata)
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -108,8 +106,6 @@ class Patton_2017(SupernovaModel):
             times, energies, self.array, ax_t=1, ax_e=2
         )
 
-        self.filename = os.path.basename(filename)
-        
         super().__init__(-times << u.hour, metadata)
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -147,8 +143,6 @@ class Kato_2017(SupernovaModel):
             times, energies, self.array, ax_t=1, ax_e=2
         )
 
-        self.filename = os.path.basename(path)
-        
         super().__init__(-times << u.s, metadata)
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -188,8 +182,6 @@ class Yoshida_2016(SupernovaModel):
             times, energies, dNdEdT, ax_t=1, ax_e=2
         )
 
-        self.filename = os.path.basename(filename)
-        
         super().__init__(-times << u.s, metadata)
 
     def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
@@ -237,8 +229,6 @@ class Myers_2026(SupernovaModel):
             np.abs(times), energies, dNdEdT, ax_t=1, ax_e=2
         )
 
-        self.filename = os.path.basename(filename)
-        
         super().__init__(times << u.hour, metadata)
 
     @classmethod
