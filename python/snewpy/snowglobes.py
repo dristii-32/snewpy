@@ -248,8 +248,12 @@ def collate(rates):
 
     # make collated rate table
     collated_rates = {}
+    patterns = {'nc':'nc_','eES':'_e', 
+                'coh_helm_Ar':r'coh_helm.*_Ar', 'coh_helm_Ge':r'coh_helm.*_Ge', 'coh_helm_Xe':r'coh_helm.*_Xe',
+                'coh_klein-nystrand_Ar':r'coh_klein.*_Ar', 'coh_klein-nystrand_Ge':r'coh_klein.*_Ge', 'coh_klein-nystrand_Xe':r'coh_kelin.*_Xe'                
+               }
     for det in rates:
-        collated_rates[det] = aggregate_channels(rates[det],{'nc':'nc_','eES':'_e', 'coh_helm_Ar':r'coh_helm_.*_Ar'})
+        collated_rates[det] = aggregate_channels(rates[det],patter)
 
     if rates_filename is not None:
         # save resulting collated tables to file
