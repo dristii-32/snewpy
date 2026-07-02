@@ -125,7 +125,7 @@ class Tamborra_2014(GarchingArchiveModel):
         """Model initialization same as GarchingArchiveModel
         """
         self.name = self.__class__.__name__            
-        super().__init__(filename, metadata)
+        super().__init__(filename, eos, metadata)
 
 
 class Bollig_2016(GarchingArchiveModel):
@@ -133,7 +133,7 @@ class Bollig_2016(GarchingArchiveModel):
         """Model initialization same as GarchingArchiveModel
         """
         self.name = self.__class__.__name__            
-        super().__init__(filename, metadata)
+        super().__init__(filename, eos, metadata)
 
 
 class Walk_2018(GarchingArchiveModel):
@@ -141,7 +141,7 @@ class Walk_2018(GarchingArchiveModel):
         """Model initialization same as GarchingArchiveModel
         """
         self.name = self.__class__.__name__            
-        super().__init__(filename, metadata)
+        super().__init__(filename, eos, metadata)
 
 
 class Walk_2019(GarchingArchiveModel):
@@ -149,7 +149,7 @@ class Walk_2019(GarchingArchiveModel):
         """Model initialization same as GarchingArchiveModel
         """
         self.name = self.__class__.__name__            
-        super().__init__(filename, metadata)
+        super().__init__(filename, eos, metadata)
 
 
 class OConnor_2013(PinchedModel):
