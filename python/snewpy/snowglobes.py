@@ -141,7 +141,7 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
 
     #save resulting flux or array of fluences to file
     if output_filename is not None:
-        if Path(output_filename).suffix is not '.npz':
+        if Path(output_filename).suffix != '.npz':
             flux_filename = output_filename + '.npz'
     else:
         if len(times) > 1:
