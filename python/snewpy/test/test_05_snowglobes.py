@@ -2,6 +2,7 @@ import pytest
 from pathlib import Path
 from snewpy.test._rate_crosscheck_table import rate_table
 from snewpy import snowglobes, model_path
+from snewpy.utils import get_model_class
 
 from snewpy.models import ccsn
 import astropy.units as u
@@ -10,6 +11,7 @@ pytestmark=pytest.mark.snowglobes
 
 #get available model parameters from table
 param_values = list(rate_table.keys())
+
 #get available detectors from table
 detectors = list(list(rate_table.values())[0].keys())
 
@@ -18,9 +20,10 @@ model = ccsn.Bollig_2016
 for params in model.get_param_combinations():
     model(**params)
     
-def fluence_calculation(model_name,transform):
+def fluence_calculation(model_name,model_mass,transform):
     #generating fluence file
-    return snowglobes.generate(model_name, transform,d=10)
+    model = get_model_class(model_name)(progenitor_mass=model_mass<<u.Msun)    
+    return snowglobes.generate(model, transform,d=10)
 
 def rates_calculation(fluence):
     tables = snowglobes.simulate(None,fluence,detector_input=detectors)
