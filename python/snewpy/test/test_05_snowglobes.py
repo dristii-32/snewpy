@@ -23,7 +23,7 @@ for params in model.get_param_combinations():
 def fluence_calculation(model_name,model_mass,transform):
     #generating fluence file
     model = get_model_class(model_name)(model_mass<<u.Msun)    
-    return snowglobes.generate(model, transform,d=10)
+    return snowglobes.generate(model, transform,d=10*u.kpc)
 
 def rates_calculation(fluence):
     tables = snowglobes.simulate(None,fluence,detector=detectors)
@@ -31,7 +31,7 @@ def rates_calculation(fluence):
     for det in tables:
         result[det] = 0
         for chan in tables[det]:
-            result[det] += table[det][chan].sum('energy').array.squeeze()
+            result[det] += table[det][chan].integrate_or_sum('energy').array.squeeze()
     return result
 
 @pytest.mark.parametrize('model_parameters',param_values)
