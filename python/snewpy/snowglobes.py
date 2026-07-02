@@ -5,17 +5,18 @@
 event rates from a given input supernova neutrino flux. It supports many
 different neutrino detectors, detector materials and interaction channels.
 There are three basic steps to using SNOwGLoBES from SNEWPY:
-
+def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
 * **Generating input files for SNOwGLoBES:**
-    There are two ways to do this, either generate a time series or a fluence file. This is done taking as input the supernova simulation model.
-    The first will evaluate the neutrino flux at each time step, the latter will compute the integrated neutrino flux (fluence) in the time bin.
-    The result is a compressed .tar file containing all individual input files.
+    Generate one or more flux or fluence file from a given model using a specified flavor transformation prescription and supernova distance.
+    Optional arguments are the name of the output file, an array of time bin edegs, and an array of energy bin edges. If no output name is given,
+    a name based on the SN model will be created. The result is a Container object defined in snewpy.flux. 
 * **Running SNOwGLoBES:**
-    This step convolves the fluence generated in the previous step with the cross-sections for the interaction channels happening in various detectors supported by SNOwGLoBES.
-    It takes into account the effective mass of the detector as well as a smearing matrix describing the energy-dependent detection efficiency.
-    The output gives the number of events detected as a function of energy for each interaction channel, integrated in a given time window (or time bin), or in a snapshot in time.
+    This step takes the flux or fluence Container object and processes it with SNOwGLoBES. The flux / fluence are those generated in the previous step 
+    If a SNOwGLoBES detector-type name is given only those detectors are considered: by default all detector types SNOwGLoBES can model are used. 
+    The detector_effects argument determines whether the event numbers in the energy bins are 'smeared' or 'unsmeared', and the detector efficiency. 
+    The output is a double dictionary of the number of events in a given time bin and energy bin for a given channel in a given detector. 
 * **Collating SNOwGLoBES outputs:**
-    This step puts together all the interaction channels and time bins evaluated by SNOwGLoBES in a single file (for each detector and for each time bin).
+    This step collates together all the interaction channels and time bins evaluated by SNOwGLoBES in a single channel (for each detector and for each time bin).
     The output tables allow to build the detected neutrino energy spectrum and neutrino time distribution, for each reaction channel or the sum of them.
 """
 
