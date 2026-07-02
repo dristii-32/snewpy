@@ -16,7 +16,7 @@ param_values = list(rate_table.keys())
 detectors = list(list(rate_table.values())[0].keys())
 
 #make sure the model files are loaded
-model = ccsn.Bollig_2016
+model = Bollig_2016
 for params in model.get_param_combinations():
     model(**params)
     
