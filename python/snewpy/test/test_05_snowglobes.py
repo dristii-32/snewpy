@@ -25,8 +25,10 @@ def fluence_calculation(model_name,transform):
 def rates_calculation(fluence):
     tables = snowglobes.simulate(None,fluence,detector_input=detectors)
     result = {}
-    for det,chan in tables.items():
-        result[det] += table[det][chan].sum().array.squeeze()
+    for det in tables:
+        result[det] = 0
+        for chan in tables[det]:
+            result[det] += table[det][chan].sum().array.squeeze().value
     return result
 
 @pytest.mark.parametrize('model_parameters',param_values)
