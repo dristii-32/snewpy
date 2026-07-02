@@ -1,3 +1,4 @@
+from inspect import isclass
 import os
 import numpy as np
 import importlib
