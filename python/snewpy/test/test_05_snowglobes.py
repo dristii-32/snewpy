@@ -4,7 +4,7 @@ from snewpy.test._rate_crosscheck_table import rate_table
 from snewpy import snowglobes, model_path
 from snewpy.utils import get_model_class
 
-from snewpy.models import ccsn
+from snewpy.models.ccsn import *
 import astropy.units as u
 
 pytestmark=pytest.mark.snowglobes
