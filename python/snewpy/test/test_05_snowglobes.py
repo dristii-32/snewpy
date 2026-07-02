@@ -26,11 +26,11 @@ def fluence_calculation(model_name,model_mass,transform):
     return snowglobes.generate(model, transform,d=10*u.kpc)
 
 def rates_calculation(fluence):
-    tables = snowglobes.simulate(None,fluence,detector=detectors)
+    table = snowglobes.simulate(None,fluence,detector=detectors)
     result = {}
-    for det in tables:
+    for det in table:
         result[det] = 0
-        for chan in tables[det]:
+        for chan in table[det]:
             result[det] += table[det][chan].integrate_or_sum('energy').array.squeeze()
     return result
 
