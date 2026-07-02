@@ -17,3 +17,17 @@ def strip_extensions(filename):
             break    
     return filename
     
+def get_model_class(model_type: str):
+    """Look up model class corresponding to the given model name.
+    """    
+    models_dict = {}
+    modules_list = ["snewpy.models.base", "snewpy.models.ccsn", "snewpy.models.ccsn_loaders",
+                    "snewpy.models.extended", "snewpy.models.presn", "snewpy.models.presn_loaders"]
+    for module_name in modules_list:
+        module = importlib.import_module(module_name)
+        models_dict.update({k:v for k,v in vars(module).items() if isclass(v)})
+
+    try:
+        return models_dict[model_type]
+    except KeyError:
+        raise ValueError(f"Model '{model_type}' not found.")
