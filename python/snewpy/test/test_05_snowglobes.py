@@ -21,7 +21,7 @@ for params in model.get_param_combinations():
     
 def fluence_calculation(model_name,model_mass,transform):
     #generating fluence file
-    model = get_model_class(model_name)(model_mass<<u.Msun)    
+    model = snowglobes.get_model_class(model_name)(model_mass<<u.Msun)    
     return snowglobes.generate(model, transform,d=10*u.kpc)
 
 def rates_calculation(fluence):
