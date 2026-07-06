@@ -41,54 +41,10 @@ from snewpy.flavor_transformation import *
 from snewpy.neutrino import MassHierarchy, MixingParameters
 from snewpy.rate_calculator import RateCalculator, center
 from snewpy.flux import Container
-from snewpy.utils import strip_extensions
+from snewpy.utils import strip_extensions, get_transformation
 
 logger = logging.getLogger(__name__)
 
-def _get_transformation(flavor_transformation: str):
-    """Identify the flavor transformation from a string
-
-    Parameters
-    ---------
-    flavor_transformation : str
-        Name of the flavor transformation
-
-    Returns
-    -------
-    FlavorTransformation object initialized with default parameters
-    """
-
-    IMO_mix_params = MixingParameters(MassHierarchy.INVERTED)
-    NMO_mix_params = MixingParameters(MassHierarchy.NORMAL) 
-    
-    warn("Using a string to specify the flavor transformation is deprecated. Please use a `FlavorTransformation` instance instead.", DeprecationWarning, stacklevel=3)
-    if flavor_transformation.startswith(('NeutrinoDecay', 'QuantumDecoherence')):
-        print(f"Using default parameters for {flavor_transformation} transformation. Use a `FlavorTransformation` instance to specify custom parameters.")
-
-    # Choose flavor transformation. Use dict to associate the transformation name with its class.
-    # The default mixing paramaters are the normal hierarchy values
-    flavor_transformation_dict = {'NoTransformation': NoTransformation(), 
-                                  'CompleteExchange': CompleteExchange(),                                
-                                  'AdiabaticMSW_NMO': AdiabaticMSW(NMO_mix_params), 
-                                  'AdiabaticMSW_IMO': AdiabaticMSW(IMO_mix_params), 
-                                  'NonAdiabaticMSWH_NMO': NonAdiabaticMSWH(NMO_mix_params), 
-                                  'NonAdiabaticMSWH_IMO': NonAdiabaticMSWH(IMO_mix_params), 
-                                  'TwoFlavorDecoherence': TwoFlavorDecoherence(NMO_mix_params), 
-                                  'TwoFlavorDecoherence_NMO': TwoFlavorDecoherence(NMO_mix_params), 
-                                  'TwoFlavorDecoherence_IMO': TwoFlavorDecoherence(IMO_mix_params), 
-                                  'ThreeFlavorDecoherence': ThreeFlavorDecoherence(NMO_mix_params),
-                                  'NeutrinoDecay_NMO': NeutrinoDecay(NMO_mix_params), 
-                                  'NeutrinoDecay_IMO': NeutrinoDecay(IMO_mix_params), 
-                                  'QuantumDecoherence_NMO': QuantumDecoherence(NMO_mix_params), 
-                                  'QuantumDecoherence_IMO': QuantumDecoherence(IMO_mix_params),
-                                  }
-
-    try:
-        return flavor_transformation_dict[flavor_transformation]
-    except KeyError:
-        raise ValueError(f"Flavor transformation '{flavor_transformation}' not found.")
-
-        
 def generate(model, flavor_transformation, d, output_filename=None, times=None, energies=None):
     """Generate a flux at a given time or array of fluences for array of time bins, for a given set of energies.
     Flux / fluences will be output into a numpy npz file with either the filename provided or derived from the model name
@@ -117,7 +73,10 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
 
     # if flavor_transformation is a string, find the appropriate class
     if isinstance(flavor_transformation, str):
-        flavor_transformation = _get_transformation(flavor_transformation)
+        warn("Using a string to specify the flavor transformation is deprecated. Please use a `FlavorTransformation` instance instead.", DeprecationWarning, stacklevel=3)
+        if flavor_transformation.startswith(('NeutrinoDecay', 'QuantumDecoherence')):
+            print(f"Using default parameters for {flavor_transformation} transformation. Use a `FlavorTransformation` instance to specify custom parameters.")        
+        flavor_transformation = get_transformation(flavor_transformation)
 
     # set the timings up
     # default if input is None, use full time window of the model
