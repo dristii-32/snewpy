@@ -30,7 +30,7 @@ def rates_calculation(fluence):
     for det in table:
         result[det] = 0
         for chan in table[det]:
-            result[det] += table[det][chan].integrate_or_sum('energy').array.squeeze()
+            result[det] += table[det][chan].integrate_or_sum('energy').array.squeeze().value
     return result
 
 @pytest.mark.parametrize('model_parameters',param_values)
