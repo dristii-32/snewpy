@@ -18,6 +18,45 @@ def strip_extensions(filename):
             filename += ext
             break    
     return filename
+
+def get_transformation(flavor_transformation: str):
+    """Identify the flavor transformation from a string
+
+    Parameters
+    ---------
+    flavor_transformation : str
+        Name of the flavor transformation
+
+    Returns
+    -------
+    FlavorTransformation object initialized with default parameters
+    """
+
+    IMO_mix_params = MixingParameters(MassHierarchy.INVERTED)
+    NMO_mix_params = MixingParameters(MassHierarchy.NORMAL) 
+
+    # Choose flavor transformation. Use dict to associate the transformation name with its class.
+    # The default mixing paramaters are the normal hierarchy values
+    flavor_transformation_dict = {'NoTransformation': NoTransformation(), 
+                                  'CompleteExchange': CompleteExchange(),                                
+                                  'AdiabaticMSW_NMO': AdiabaticMSW(NMO_mix_params), 
+                                  'AdiabaticMSW_IMO': AdiabaticMSW(IMO_mix_params), 
+                                  'NonAdiabaticMSWH_NMO': NonAdiabaticMSWH(NMO_mix_params), 
+                                  'NonAdiabaticMSWH_IMO': NonAdiabaticMSWH(IMO_mix_params), 
+                                  'TwoFlavorDecoherence': TwoFlavorDecoherence(NMO_mix_params), 
+                                  'TwoFlavorDecoherence_NMO': TwoFlavorDecoherence(NMO_mix_params), 
+                                  'TwoFlavorDecoherence_IMO': TwoFlavorDecoherence(IMO_mix_params), 
+                                  'ThreeFlavorDecoherence': ThreeFlavorDecoherence(NMO_mix_params),
+                                  'NeutrinoDecay_NMO': NeutrinoDecay(NMO_mix_params), 
+                                  'NeutrinoDecay_IMO': NeutrinoDecay(IMO_mix_params), 
+                                  'QuantumDecoherence_NMO': QuantumDecoherence(NMO_mix_params), 
+                                  'QuantumDecoherence_IMO': QuantumDecoherence(IMO_mix_params),
+                                  }
+
+    try:
+        return flavor_transformation_dict[flavor_transformation]
+    except KeyError:
+        raise ValueError(f"Flavor transformation '{flavor_transformation}' not found.")
     
 def get_model_class(model_type: str):
     """Look up model class corresponding to the given model name.
