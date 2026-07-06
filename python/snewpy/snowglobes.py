@@ -226,7 +226,6 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
     # if flavor_transformation is a string, find the appropriate class
     if isinstance(flavor_transformation, str):
         flavor_transformation = get_transformation(flavor_transformation)
-    model = model_class(model_path, **snmodel_dict)
 
     #set the timings up
     #default if inputs are None: full time window of the model
