@@ -33,7 +33,7 @@ class TestSimpleRate(unittest.TestCase):
         # Use results to print the number of events in different interaction channels
         total_events  = 0
         for channel in collated_events[detector]:
-            n_events = collated_events[detector][channel].integrate_or_sum('energy').array.squeeze()
+            n_events = collated_events[detector][channel].integrate_or_sum('energy').array.squeeze().value
             print(f"{detector}:{channel}: {n_events:.3f} events")
             total_events += n_events
 
