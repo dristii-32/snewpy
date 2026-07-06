@@ -909,7 +909,7 @@ class Mori_2023(PinchedModel):
             alpha = (2-x) / (x-1)
 
             simtab[f'E_{f}'] = Eavg << u.MeV
-            simtab[f'E2_{f}'] = E2 << u.MeV**2
+            simtab[f'E2_{f}'] = Erms**2 << u.MeV**2
             simtab[f'ALPHA_{f}'] = alpha
 
 #            simtab[f'E_{f.name}'] = simtab[f'{9+j}:Em{fkey}[MeV]'] << u.MeV
