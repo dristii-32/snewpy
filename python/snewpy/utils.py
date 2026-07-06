@@ -3,6 +3,9 @@ import os
 import numpy as np
 import importlib
 
+from snewpy.flavor_transformation import *
+from snewpy.neutrino import MassHierarchy, MixingParameters
+
 def expand_dimensions_to(a:np.ndarray, ndim:int)->np.ndarray:
     """Expand the dimensions of the array, adding dimensions of len=1 to the right,
     so total dimensions equal to `ndim`"""
