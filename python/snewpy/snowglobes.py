@@ -107,6 +107,144 @@ def get_model_class(model_type: str):
     except KeyError:
         raise ValueError(f"Model '{model_type}' not found.")
 
+def generate_time_series(model_path, model_type, flavor_transformation, d, output_filename=None, ntbins=30, deltat=None, snmodel_dict={}):
+    """Generate time series files.
+
+    This version will subsample the times in a supernova model, 
+    and compress the output into a NumPy archive file
+
+    Parameters
+    ----------
+    model_path : str
+        Input file containing neutrino flux information from supernova model.
+    model_type : str
+        Format of input file. Matches the name of the corresponding class in :py:mod:`snewpy.models`.
+    flavor_transformation : str or instance of flavor transformation class  
+        If a string, the class is found using the _get_transformation function
+    d : int or float
+        Distance to supernova in kpc.
+    output_filename : str or None
+        Name of output file. If ``None``, will be based on the model name + transformation
+    ntbins : int
+        Number of time slices. Will be ignored if ``deltat`` is also given.
+    deltat : astropy.Quantity or None
+        Length of time slices.
+    snmodel_dict : dict
+        Additional arguments for setting up the supernova model. See documentation of relevant ``SupernovaModel`` subclass for available options. (Optional)
+
+    Returns
+    -------
+    str
+        Path of NumPy archive file with neutrino fluence data.
+    """
+    warn("generate_time_series is deprecated. Please use `generate` instead.", DeprecationWarning, stacklevel=2)
+    
+    model_class = get_model_class(model_type)
+    model_dir, model_file = os.path.split(os.path.abspath(model_path))
+    model = model_class(model_path, **snmodel_dict)
+    
+    # if flavor_transformation is a string, find the appropriate class
+    if isinstance(flavor_transformation, str):
+        flavor_transformation = get_transformation(flavor_transformation)
+
+    # Subsample the model time. Default to 30 time slices.
+    tmin = model.get_time()[0]
+    tmax = model.get_time()[-1]
+    if deltat is not None:
+        dt = deltat
+        ntbins = int((tmax-tmin)/dt)
+    else:
+        dt = (tmax - tmin) / (ntbins+1)
+    times = np.arange(tmin/u.s, tmax/u.s, dt/u.s)*u.s
+
+    # set up energies: 0 to 100 MeV in steps of 200 keV
+    energies = np.linspace(0, 100, 501) << u.MeV
+    
+    if output_filename is not None:
+        if Path(output_filename).suffix != '.npz':
+            output_filename = output_filename + '.npz'
+    else:
+        if len(times) > 1:
+            output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+        else:
+            output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+
+    generate(model, flavor_transformation, d, output_filename, times, energies)
+    
+    return output_filename
+
+def generate_fluence(model_path, model_type, flavor_transformation, d, output_filename=None, tstart=None, tend=None, snmodel_dict={}):
+    """Generate fluence files in SNOwGLoBES format.
+
+    This version will subsample the times in a supernova model, produce energy
+    tables expected by SNOwGLoBES, and compress the output into a tarfile.
+
+    Parameters
+    ----------
+    model_path : str
+        Input file containing neutrino flux information from supernova model.
+    model_type : str
+        Format of input file. Matches the name of the corresponding class in :py:mod:`snewpy.models`.
+    flavor_transformation : str or instance of flavor transformation class  
+        If a string, the class is found using the _get_transformation function
+    d : int or float
+        Distance to supernova in kpc.
+    output_filename : str or None
+        Name of output file. If ``None``, will be based on the model name + transformation.
+    tstart : astropy.Quantity or None
+        Start of time interval to integrate over, or list of start times of the time series bins.
+    tend : astropy.Quantity or None
+        End of time interval to integrate over, or list of end times of the time series bins.
+    snmodel_dict : dict
+        Additional arguments for setting up the supernova model. See documentation of relevant ``SupernovaModel`` subclass for available options. (Optional)
+
+    Returns
+    -------
+    str
+        Path of NumPy archive file with neutrino fluence data.
+    """
+    warn("generate_fluence is deprecated. Please use `generate` instead.", DeprecationWarning, stacklevel=2)
+    
+    model_class = get_model_class(model_type)
+    model_dir, model_file = os.path.split(os.path.abspath(model_path))
+    model = model_class(model_path, **snmodel_dict)
+    
+    # if flavor_transformation is a string, find the appropriate class
+    if isinstance(flavor_transformation, str):
+        flavor_transformation = get_transformation(flavor_transformation)
+    model = model_class(model_path, **snmodel_dict)
+
+    #set the timings up
+    #default if inputs are None: full time window of the model
+    times = None
+    if tstart is not None and tend is not None:
+        try:
+            #in case we have arrays: join them together
+            times = np.append(tstart, tend)
+            #and get rid of the duplicates with 1e-10 tolerance
+            times = np.unique(times.round(decimals=10))
+        except:
+            #in case we have single values
+            times = u.Quantity([tstart,tend])
+        times.sort()
+
+    # set up energies: 0 to 100 MeV in steps of 200 keV
+    energies = np.linspace(0, 100, 501) << u.MeV    
+    
+    if output_filename is not None:
+        if Path(output_filename).suffix != '.npz':
+            output_filename = output_filename + '.npz'
+    else:
+        if len(times) > 1:
+            output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+        else:
+            output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+
+    generate(model, flavor_transformation, d, output_filename, times, energies)
+    
+    return output_filename
+
+
 def generate(model, flavor_transformation, d, output_filename=None, times=None, energies=None):
     """Generate a flux at a given time or array of fluences for array of time bins, for a given set of energies.
     Flux / fluences will be output into a numpy npz file with either the filename provided or derived from the model name
@@ -163,13 +301,13 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
     #save resulting flux or array of fluences to file
     if output_filename is not None:
         if Path(output_filename).suffix != '.npz':
-            flux_filename = output_filename + '.npz'
+            output_filename = output_filename + '.npz'
     else:
         if len(times) > 1:
-            flux_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+            output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
         else:
-            flux_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
-    flux.save(flux_filename)    
+            output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
+    flux.save(output_filename)    
     
     return flux
 
