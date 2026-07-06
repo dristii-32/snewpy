@@ -905,8 +905,7 @@ class Mori_2023(PinchedModel):
             # E_rms^2 = <E^2> - <E>^2.
             Eavg = simtab[f'{9+j}:Em{fkey}[MeV]']
             Erms = simtab[f'{12+j}:Er{fkey}[MeV]']
-            E2 = Erms**2 + Eavg**2
-            x = E2 / Eavg**2
+            x = Erms**2 / Eavg**2
             alpha = (2-x) / (x-1)
 
             simtab[f'E_{f}'] = Eavg << u.MeV
