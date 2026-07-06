@@ -107,6 +107,20 @@ def get_model_class(model_type: str):
     except KeyError:
         raise ValueError(f"Model '{model_type}' not found.")
 
+def get_model_loader(model_type: str):
+    """Look up model class corresponding to the given model name.
+    """    
+    models_dict = {}
+    modules_list = ["snewpy.models.ccsn_loaders", "snewpy.models.presn_loaders"]
+    for module_name in modules_list:
+        module = importlib.import_module(module_name)
+        models_dict.update({k:v for k,v in vars(module).items() if isclass(v)})
+
+    try:
+        return models_dict[model_type]
+    except KeyError:
+        raise ValueError(f"Model loader'{model_type}' not found.")
+
 def generate_time_series(model_path, model_type, flavor_transformation, d, output_filename=None, ntbins=30, deltat=None, snmodel_dict={}):
     """Generate time series files.
 
@@ -139,9 +153,9 @@ def generate_time_series(model_path, model_type, flavor_transformation, d, outpu
     """
     warn("generate_time_series is deprecated. Please use `generate` instead.", DeprecationWarning, stacklevel=2)
     
-    model_class = get_model_class(model_type)
+    model_loader = get_model_loader(model_type)
     model_dir, model_file = os.path.split(os.path.abspath(model_path))
-    model = model_class(model_path, **snmodel_dict)
+    model = model_loader(model_path, **snmodel_dict)
     
     # if flavor_transformation is a string, find the appropriate class
     if isinstance(flavor_transformation, str):
@@ -205,9 +219,9 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
     """
     warn("generate_fluence is deprecated. Please use `generate` instead.", DeprecationWarning, stacklevel=2)
     
-    model_class = get_model_class(model_type)
+    model_loader = get_model_loader(model_type)
     model_dir, model_file = os.path.split(os.path.abspath(model_path))
-    model = model_class(model_path, **snmodel_dict)
+    model = model_loader(model_path, **snmodel_dict)
     
     # if flavor_transformation is a string, find the appropriate class
     if isinstance(flavor_transformation, str):
