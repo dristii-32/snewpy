@@ -380,8 +380,9 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
             rates_filename = flux_filename_base+'.{detector}_'+smearing+'.npz'
         logging.info(f'Saving detector simulation event rates / numbers to {rates_filenames}')
         np.savez(rates_filename, **{det: np.array(rates[det]) for det in rates})
-    
-    return rates
+        return rates_filename
+    else:
+        return rates
 
 
 def collate(rates):
@@ -434,5 +435,7 @@ def collate(rates):
         collated_rates_filename = strip_extensions(rates_filename) + '_collated.npz'
         logging.info(f'Saving collated tables to {rates}')
         np.savez(collated_rates_filename, **{det: np.array(collated_rates[det]) for det in collated_rates})
-        
-    return collated_rates
+        return collated_rates_filename
+    else:
+        return collated_rates        
+
