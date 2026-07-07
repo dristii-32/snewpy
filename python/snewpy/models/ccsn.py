@@ -441,8 +441,6 @@ class Takata_2025(loaders.Takata_2025):
             else: 
                 filename = f'25_{axion_mass.to_value("MeV"):3g}_{axion_coupling.to_value("1e-10/GeV"):02g}.dat'
 
-        self.metadata = {}
-
         return super().__init__(filename, self.metadata)
 
 
