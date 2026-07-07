@@ -426,3 +426,44 @@ class RateCalculator(SnowglobesData):
                 A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
         """
         return self.read_detector(detector,material).run(flux, detector_effects=detector_effects)
+
+def collate(rates):
+    """Collates the event rates / numbers table returned by RateCalculator.run 
+       into distinct channels e.g. add all electron elastic scattering and NC channels
+
+    Parameters
+    ----------
+    dict[str, Container]
+                A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
+
+    Returns
+    -------
+    dict[str, Container]
+                A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for the collated channels.
+    """
+
+    def aggregate_channels(rates,patterns):
+        for name, pattern in patterns.items():
+            #get channels in rates with names that contain the pattern
+            matches = [channel for channel in rates.keys() if re.search(pattern,channel)]
+            #sum over the matches
+            rates_agg = sum(rates[channel] for channel in matches)
+            #remove matching channels from rates
+            for channel in matches:
+                del rates[channel]
+            #make a new entry with the aggregate 
+            if len(matches) > 0:
+                rates[name] = rates_agg
+        return rates
+
+    # make collated rate table
+    collated_rates = {}
+    patterns = {'nc':'nc_',
+                'eES':'_e', 
+                'coh_helm_Ar':r'coh_helm.*_Ar', 'coh_helm_Ge':r'coh_helm.*_Ge', 'coh_helm_Xe':r'coh_helm.*_Xe',
+                'coh_klein-nystrand_Ar':r'coh_klein.*_Ar', 'coh_klein-nystrand_Ge':r'coh_klein.*_Ge', 'coh_klein-nystrand_Xe':r'coh_kelin.*_Xe'                
+               }
+    for detector in rates:
+        collated_rates[detector] = aggregate_channels(rates[detector],patterns)
+
+    return collated_rates  
