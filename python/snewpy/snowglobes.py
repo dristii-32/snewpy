@@ -175,6 +175,8 @@ def generate_time_series(model_path, model_type, flavor_transformation, d, outpu
     # set up energies: 0 to 100 MeV in steps of 200 keV
     energies = np.linspace(0, 100, 501) << u.MeV
     
+    flux = generate(model, flavor_transformation, d, times, energies)
+    
     if output_filename is not None:
         if Path(output_filename).suffix != '.npz':
             output_filename = output_filename + '.npz'
@@ -184,9 +186,10 @@ def generate_time_series(model_path, model_type, flavor_transformation, d, outpu
         else:
             output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
 
-    generate(model, flavor_transformation, d, output_filename, times, energies)
+    flux.save(output_filename)       
     
     return output_filename
+
 
 def generate_fluence(model_path, model_type, flavor_transformation, d, output_filename=None, tstart=None, tend=None, snmodel_dict={}):
     """Generate fluence files in SNOwGLoBES format.
@@ -228,7 +231,7 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
     if isinstance(flavor_transformation, str):
         flavor_transformation = get_transformation(flavor_transformation)
 
-    #set the timings up
+    #set the time bins up
     #default if inputs are None: full time window of the model
     times = None
     if tstart is not None and tend is not None:
@@ -240,10 +243,14 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
         except:
             #in case we have single values
             times = u.Quantity([tstart,tend])
-        times.sort()
+    else:
+        times = u.Quantity([model.get_time()[0],model.get_time()[-1]])            
+    times.sort()
 
     # set up energies: 0 to 100 MeV in steps of 200 keV
     energies = np.linspace(0, 100, 501) << u.MeV    
+
+    flux = generate(model, flavor_transformation, d, times, energies)
     
     if output_filename is not None:
         if Path(output_filename).suffix != '.npz':
@@ -254,12 +261,12 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
         else:
             output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
 
-    generate(model, flavor_transformation, d, output_filename, times, energies)
+    flux.save(output_filename)       
     
     return output_filename
 
 
-def generate(model, flavor_transformation, d, output_filename=None, times=None, energies=None):
+def generate(model, flavor_transformation, d, times=None, energies=None):
     """Generate a flux at a given time or array of fluences for array of time bins, for a given set of energies.
     Flux / fluences will be output into a numpy npz file with either the filename provided or derived from the model name
 
@@ -270,9 +277,6 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
         If a string, the class is found using the _get_transformation function
     d : astropy Quantity 
         Distance to supernova
-    output_filename : str or None
-        Stem of output file. If ``None``, will be based on input file name.
-        The output file will be a npz file
     times : astropy.Quantity or None
         time to evaluate flux or array of time bin edges over which to compute the fluence
         if None, use the full model time interval for the fluence
@@ -311,22 +315,11 @@ def generate(model, flavor_transformation, d, output_filename=None, times=None, 
         flux = flux.integrate('time',limits=times)
     else:
         flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
-
-    #save resulting flux or array of fluences to file
-    if output_filename is not None:
-        if Path(output_filename).suffix != '.npz':
-            output_filename = output_filename + '.npz'
-    else:
-        if len(times) > 1:
-            output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times[0]:.3f}-'+f'{times[-1]:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
-        else:
-            output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
-    flux.save(output_filename)    
     
     return flux
 
 
-def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
+def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effects=True):
     """Calculate expected event rates for the given neutrino flux files and the given (set of) SNOwGLoBES detector(s).
     These event rates are given as a function of the neutrino energy and time, for each interaction channel.
 
@@ -334,16 +327,209 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     ----------
     SNOwGLoBESdir : str or None
         Path to SNOwGLoBES directory. Set to ``None`` to automatically use the latest supported SNOwGLoBES release.
-    flux : str or Flux Container object
-        if string, the file of that name will be opened
-    detector : str
+    tarball_path : str
+        Path of compressed .tar file produced e.g. by ``generate_time_series()`` or ``generate_fluence()``.
+    detector_input : str
+        Name of detector. If ``"all"``, will use all detectors supported by SNOwGLoBES.
+    detector_effects : bool
+         Whether to account for detector smearing and efficiency.
+    """
+    rc = RateCalculator(base_dir=SNOwGLoBESdir)
+    if detector_input == 'all':
+        detector_input = list(rc.detectors)
+    if(isinstance(detector_input,str)):
+        detector_input=[detector_input]
+    rates_dict = {}
+    #read the fluence
+    fluence = Container.load(tarball_path)
+    for det in detector_input:
+        rates_smeared=rc.run(fluence, det, detector_effects=True)
+        rates_unsmeared=rc.run(fluence, det, detector_effects=False)
+        #collect everything to pandas DataFrame, to make the output similar to previous
+        rates_dict[det]={'weighted':{'unsmeared':rates_unsmeared,
+                                 'smeared':rates_smeared,
+                                }}
+    # reorder results to produce the same format as before:
+    #    {detector: {time_bin:{'weighted':{smeared/unsmeared: [rate vs energy bins]}}}}
+    result = {}
+    fname_base = tarball_path[:tarball_path.rfind('.')]
+    for det in rates_dict:
+        #get the time bins
+        rates_smeared   = rates_dict[det]['weighted']['smeared']
+        rates_unsmeared = rates_dict[det]['weighted']['unsmeared']
+
+        #get the first rate from the dict to access the energy and time binning
+        some_rate = list(rates_smeared.values())[0]
+        tbins = center(some_rate.time)
+        ebins = center(some_rate.energy)
+        result[det] = {}
+        for n_bin, t_bin in enumerate(tbins):
+            data = {**{(chan,'unsmeared','weighted'): rate.array[0,n_bin,:]
+                      for chan,rate in rates_unsmeared.items()},
+                    **{(chan,'smeared','weighted'): rate.array[0,n_bin,:] 
+                      for chan,rate in rates_smeared.items()}}
+            
+            df = pd.DataFrame(data, index = ebins)
+            df.index.rename('E', inplace=True)
+            df.columns.rename(['channel','is_smeared','is_weighted'], inplace=True)
+            df = df.reorder_levels([2,1,0], axis='columns')
+            if len(tbins) > 1:
+                result[det][f'{fname_base}_{n_bin:01d}'] = df
+            else:
+                result[det][f'{fname_base}'] = df
+        
+    # save result to file for re-use in collate()
+    cache_file = f'{fname_base}.npy'
+    logging.info(f'Saving simulation results to {cache_file}')
+    np.save(cache_file, result)
+    return result
+
+
+re_chan_label = re.compile(r'nu(e|mu|tau)(bar|)_([A-Z][a-z]*)(\d*)_?(.*)')
+def get_channel_label(c):
+    mapp = {'nc':'NeutralCurrent',
+            'ibd':'Inverse Beta Decay',
+            'e':r'${\nu}_x+e^-$'}
+    def gen_label(m):
+        flv,bar,Nuc,num,res = m.groups()
+        if flv!='e':
+            flv='\\'+flv
+        if bar:
+            bar='\\'+bar
+        s = f'${bar}{{\\nu}}_{flv}$ '+f'${{}}^{{{num}}}{Nuc}$ '+res
+        return s
+
+    if c in mapp:
+        return mapp[c]
+    else: 
+        return re_chan_label.sub(gen_label, c) 
+
+def collate(tarball_path, skip_plots=False, *, smearing=True):
+    """Collates SNOwGLoBES output files and generates plots or returns a data table.
+
+    Parameters
+    ----------
+    tarball_path : str
+        Path of compressed .tar file produced e.g. by ``generate_time_series()`` or ``generate_fluence()``.
+    skip_plots: bool
+        If False, it gives as output the plot of the energy distribution for each time bin and for each interaction channel.
+    smearing: bool
+        Also consider results with smearing effects.
+
+    Returns
+    -------
+    dict
+        Dictionary of data tables: One table per time bin; each table contains in the first column the energy bins, in the remaining columns the number of events for each interaction channel in the detector.
+    """
+
+    def aggregate_channels(table, **patterns):
+        #rearrange the table to have only channel column
+        levels = list(table.columns.names)
+        levels.remove('channel')
+        if pd.__version__ < '2.1':
+            t = table.stack(levels)
+        else:
+            # Avoid FutureWarning, see https://pandas.pydata.org/docs/whatsnew/v2.1.0.html#new-implementation-of-dataframe-stack
+            t = table.stack(levels, future_stack=True)
+        for name,pattern in patterns.items():
+            #get channels which contain `like`
+            t_sel = t.filter(like=pattern)
+            #sum over them and save to a separate column
+            t_agg = t_sel.sum(axis='columns')
+            #drop processed channels
+            t.drop(t_sel.columns, axis='columns',inplace=True)
+            t[name]=t_agg #fill the column
+        #return table with the original levels order
+        t = t.unstack(levels)
+        t = t.reorder_levels(table.columns.names, axis=1)
+        return t
+        
+    def do_plot(table, params):
+        #plotting the events from given table
+        flux,det,weighted,smeared = params
+        for c in table.columns:
+            if table[c].max() > 0.1:
+                plt.plot(table[c],drawstyle='steps',label=get_channel_label(c), lw=1)
+        plt.xlim(right=0.10)
+        plt.ylim(bottom=0.10)
+        plt.yscale('log')
+        plt.legend(bbox_to_anchor=(0.5, 0.5, 0.5, 0.5), loc='best', borderaxespad=0)  # formats complete graph
+        smear_title = 'Interaction' if smeared=='unsmeared' else 'Detected'
+        plt.title(f'{flux} {det.capitalize()} {weighted.capitalize()} {smear_title} Events')
+        if smeared=='smeared':
+            plt.xlabel('Detected Energy (GeV)')
+            plt.ylabel('Events')  
+        else:
+            plt.xlabel('Neutrino Energy (GeV)')
+            plt.ylabel('Interaction Events')  
+
+    #read the results from storage
+    cache_file = tarball_path[:tarball_path.rfind('.')] + '.npy'
+    logging.info(f'Reading tables from {cache_file}')
+    tables = np.load(cache_file, allow_pickle=True).tolist()
+    #This output is similar to what produced by:
+    #tables = simulate(SNOwGLoBESdir, tarball_path,detector_input)
+
+    #dict for old-style results, for backward compatibiity
+    results = {}
+    smearing_options = ['smeared','unsmeared'] if smearing else ['unsmeared']
+    #save collated files:
+    with TemporaryDirectory(prefix='snowglobes') as tempdir:
+        tempdir = Path(tempdir)
+        for det in tables:
+            results[det] = {}
+            for flux,t in tables[det].items():
+                t = aggregate_channels(t,nc='nc_',e='_e')
+                for w in ['weighted']:
+                    for s in smearing_options:
+                        table = t[w][s]
+                        filename_base = f'{flux}_{det}_events_{s}_{w}'
+                        filename = tempdir/f'Collated_{filename_base}.dat'
+                        #save results to text files
+                        with open(filename,'w') as f:
+                            f.write(table.to_string(float_format='%23.15g'))
+                        #format the results for the output
+                        header = 'Energy '+' '.join(list(table.columns))
+                        data = table.to_numpy().T
+                        index = table.index.to_numpy()
+                        data = np.concatenate([[index],data])
+                        results[filename.name] = {'header':header,'data':data}
+                        #optionally plot the results
+                        if skip_plots is False:
+                            plt.figure(dpi=300)
+                            do_plot(table,(flux,det,w,s))
+                            filename = tempdir/f'{filename_base}_log_plot.png'
+                            plt.savefig(filename, dpi=300, bbox_inches='tight')
+                            plt.close()
+        #Make a tarfile with the condensed data files and plots
+        output_name = Path(tarball_path).stem
+        output_name = output_name[:output_name.rfind('.tar')]+'_SNOprocessed'
+        output_path = Path(tarball_path).parent/(output_name+'.tar.gz')
+        with tarfile.open(output_path, "w:gz") as tar:
+            for file in tempdir.iterdir():
+                tar.add(file,arcname=output_name+'/'+file.name)
+        logging.info(f'Created archive: {output_path}')
+    return results 
+    
+
+def calculate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
+    """Calculate expected event rates for the given neutrino flux files and the given (set of) SNOwGLoBES detector(s).
+    These event rates are given as a function of the neutrino energy and time, for each observale interaction channel 
+
+    Parameters
+    ----------
+    SNOwGLoBESdir : str or None
+        Path to SNOwGLoBES directory. Set to ``None`` to automatically use the latest supported SNOwGLoBES release.
+    flux : str or Container object
+        if string, the file of that name will be opened by Container.load
+    detector : str or array of str
         Name of detector. If ``"all"``, will use all detectors supported by SNOwGLoBES.
     detector_effects : bool
          Whether to account for detector smearing and efficiency.
          
     Returns
     -------
-    dict of dict of flux.Container objects, either dNdT or N
+    nested dict of flux.Container objects or name of numpy archive file that can be read by the Container.load member
         Dictionary of event rates / numbers: first dict key is detector type, second is channel 
     """
 
@@ -371,33 +557,6 @@ def simulate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     rates = {}            
     for det in detector_list:        
         rates[det] = rc.run(flux, det, detector_effects=detector_effects)
-                
-    if flux_filename is not None: 
-        # save result to file
-        if detector == 'all': 
-            rates_filename = flux_filename_base+'.all_'+smearing+'.npz'
-        else:
-            rates_filename = flux_filename_base+'.{detector}_'+smearing+'.npz'
-        logging.info(f'Saving detector simulation event rates / numbers to {rates_filenames}')
-        np.savez(rates_filename, **{det: np.array(rates[det]) for det in rates})
-        return rates_filename
-    else:
-        return rates
-
-
-def collate(rates):
-    """Collates event rates / numbers into distinct channels i.e. add all electron elastic scattering and NC channels
-
-    Parameters
-    ----------
-    rates : str or dictionary of flux.Container objects, dict key is detector type 
-        if str, the file with that name will be opened
-
-    Returns
-    -------
-    dict of dict of flux.Container objects, either dNdT or N
-        Dictionary of event rates / numbers: first dict key is detector type, second is channel 
-    """
 
     def aggregate_channels(rates,patterns):
         for name, pattern in patterns.items():
@@ -413,29 +572,24 @@ def collate(rates):
                 rates[name] = rates_agg
         return rates
 
-    if isinstance(rates,str): #read the flux in the rates_files
-        rates_filenames = rates
-        logging.info(f'Reading rates from {rates_filenames}')
-        rates = np.load(rates_filename)
-    else:
-        rates_filename = None
-
     # make collated rate table
     collated_rates = {}
-    patterns = {'nc':'nc_','eES':'_e', 
+    patterns = {'nc':'nc_',
+                'eES':'_e', 
                 'coh_helm_Ar':r'coh_helm.*_Ar', 'coh_helm_Ge':r'coh_helm.*_Ge', 'coh_helm_Xe':r'coh_helm.*_Xe',
                 'coh_klein-nystrand_Ar':r'coh_klein.*_Ar', 'coh_klein-nystrand_Ge':r'coh_klein.*_Ge', 'coh_klein-nystrand_Xe':r'coh_kelin.*_Xe'                
                }
-    for det in rates:
-        collated_rates[det] = aggregate_channels(rates[det],patterns)
-
-    if rates_filename is not None:
-        # save resulting collated tables to file
-        # strip extension of original filename (if present in list of extensions to strip as defined in utils.strip_extensions)
-        collated_rates_filename = strip_extensions(rates_filename) + '_collated.npz'
-        logging.info(f'Saving collated tables to {rates}')
+    for detector in rates:
+        collated_rates[detector] = aggregate_channels(rates[detector],patterns)
+                
+    if flux_filename is not None: 
+        # save result to file
+        if detector == 'all': 
+            collated_rates_filename = flux_filename_base+'.all_'+smearing+'_collated.npz'
+        else:
+            collated_rates_filename = flux_filename_base+'.{detector}_'+smearing+'_collated.npz'
+        logging.info(f'Saving detector event rates / numbers to {collated_rates_filenames}')
         np.savez(collated_rates_filename, **{det: np.array(collated_rates[det]) for det in collated_rates})
         return collated_rates_filename
     else:
-        return collated_rates        
-
+        return collated_rates
