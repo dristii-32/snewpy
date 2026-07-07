@@ -3,6 +3,8 @@
 """
 import unittest
 
+import numpy as np
+
 from snewpy.flavor import ThreeFlavor
 from snewpy import flux
 from snewpy.models.ccsn_loaders import Nakazato_2013, Tamborra_2014, OConnor_2013, OConnor_2015, \
@@ -10,7 +12,7 @@ from snewpy.models.ccsn_loaders import Nakazato_2013, Tamborra_2014, OConnor_201
                                   Walk_2019, Fornax_2019, Warren_2020, \
                                   Fischer_2020, Kuroda_2020, \
                                   Bugli_2021, Fornax_2021, Zha_2021, \
-                                  Fornax_2024
+                                  Fornax_2024, Takata_2025
 from astropy import units as u
 from snewpy import model_path
 import re
@@ -335,3 +337,31 @@ class TestModels(unittest.TestCase):
             self.assertTrue(t.unit, u.s)
 
             self.check_model_spectra(model)
+
+    def test_Takata_2025(self):
+        """
+        Instantiate a set of 'Takata 2025' models
+        """
+        for pmass in [11.2, 20, 25] << u.Msun:
+            for amass in [0, 40, 100, 150, 200, 300, 400, 600, 800] << u.MeV:
+                for ga in [0, 4, 6, 8, 10] << 1e-10/u.GeV:
+                    if (amass.value == 0) != (ga.value == 0):
+                        continue
+
+                    mfile = '_'.join([
+                        f'{np.trunc(pmass.to_value("Msun")):g}',
+                        f'{amass.to_value("MeV"):03g}',
+                        f'{ga.to_value("1e-10/GeV"):02g}.dat'])
+
+                    model = Takata_2025(os.path.join(model_path, 'Takata_2025', mfile), metadata={'Progenitor mass':pmass, 'Axion mass':amass, 'Axion coupling':ga})
+
+                    self.assertEqual(model.metadata['Progenitor mass'], pmass)
+                    self.assertEqual(model.metadata['Axion mass'], amass)
+                    self.assertEqual(model.metadata['Axion coupling'], ga)
+
+                    # Check that times are in proper units.
+                    t = model.get_time()
+                    self.assertTrue(t.unit, u.s)
+
+                    # Check that we can compute flux dictionaries.
+                    self.check_model_spectra(model)
