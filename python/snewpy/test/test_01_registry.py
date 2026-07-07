@@ -450,17 +450,20 @@ class TestModels(unittest.TestCase):
         Instantiate a set of 'Takata 2025' models
         """
         for pmass in [11.2, 20, 25] << u.Msun:
-            for amass in [40, 100, 150, 200, 300, 400, 600, 800] << u.MeV:
-                for ga in [4, 6, 8, 10] << 1e-10/u.GeV:
+            for amass in [0, 40, 100, 150, 200, 300, 400, 600, 800] << u.MeV:
+                for ga in [0, 4, 6, 8, 10] << 1e-10/u.GeV:
+                    if (amass.value == 0) != (ga.value == 0):
+                        continue
+
                     model = Takata_2025(progenitor_mass=pmass, axion_mass=amass, axion_coupling=ga)
 
-                self.assertEqual(model.metadata['Progenitor mass'], pmass)
-                self.assertEqual(model.metadata['Axion mass'], amass)
-                self.assertEqual(model.metadata['Axion coupling'], ga)
+                    self.assertEqual(model.metadata['Progenitor mass'], pmass)
+                    self.assertEqual(model.metadata['Axion mass'], amass)
+                    self.assertEqual(model.metadata['Axion coupling'], ga)
 
-                # Check that times are in proper units.
-                t = model.get_time()
-                self.assertTrue(t.unit, u.s)
+                    # Check that times are in proper units.
+                    t = model.get_time()
+                    self.assertTrue(t.unit, u.s)
 
-                # Check that we can compute flux dictionaries.
-                self.check_model_spectra(model)
+                    # Check that we can compute flux dictionaries.
+                    self.check_model_spectra(model)
