@@ -25,10 +25,7 @@ class TestSimpleRate(unittest.TestCase):
         fluences = snowglobes.generate(model, transformation, distance)
 
         print("Simulating detector effects with SNOwGLoBES ...")
-        events = snowglobes.simulate(SNOwGLoBES_path, fluences, detector=detector, detector_effects=True)
-
-        print("Collating results ...")
-        collated_events = snowglobes.collate(events)
+        events = snowglobes.calculate(SNOwGLoBES_path, fluences, detector=detector, detector_effects=True)
 
         # Use results to print the number of events in different interaction channels
         total_events  = 0
