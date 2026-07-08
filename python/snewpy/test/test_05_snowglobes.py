@@ -25,7 +25,7 @@ def fluence_calculation(model_name,model_mass,transform):
     return snowglobes.generate(model, transform,d=10*u.kpc)
 
 def rates_calculation(fluence):
-    table = snowglobes.simulate(None,fluence,detector=detectors)
+    table = snowglobes.calculate(None,fluence,detector=detectors)
     result = {}
     for det in table:
         result[det] = 0
