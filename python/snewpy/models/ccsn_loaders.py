@@ -905,12 +905,11 @@ class Mori_2023(PinchedModel):
             # E_rms^2 = <E^2> - <E>^2.
             Eavg = simtab[f'{9+j}:Em{fkey}[MeV]']
             Erms = simtab[f'{12+j}:Er{fkey}[MeV]']
-            E2 = Erms**2 + Eavg**2
-            x = E2 / Eavg**2
+            x = Erms**2 / Eavg**2
             alpha = (2-x) / (x-1)
 
             simtab[f'E_{f}'] = Eavg << u.MeV
-            simtab[f'E2_{f}'] = E2 << u.MeV**2
+            simtab[f'E2_{f}'] = Erms**2 << u.MeV**2
             simtab[f'ALPHA_{f}'] = alpha
 
 #            simtab[f'E_{f.name}'] = simtab[f'{9+j}:Em{fkey}[MeV]'] << u.MeV
