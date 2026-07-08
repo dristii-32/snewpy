@@ -940,13 +940,18 @@ class Takata_2025(PinchedModel):
 
         self.metadata = metadata
 
-        #Read ASCII data.
+        # Read ASCII data and clean up NaN values in float columns.
         simtab = Table.read(datafile, format='ascii')
+        has_nan = np.zeros(len(simtab), dtype=bool)
+        for col in simtab.itercols():
+            if col.info.dtype.kind == 'f':
+                has_nan |= np.isnan(col)
+        simtab = simtab[~has_nan]
 
-        #Remove the first table row, which appears to have zero input.
+        # Remove the first table row, which appears to have zero input.
         simtab = simtab[simtab['1:t_sim[s]'] > 0]
 
-        #Get grid of model times.
+        # Get grid of model times.
         simtab['TIME'] = simtab['2:t_pb[s]'] << u.s
         for j, (f, fkey) in enumerate(zip(["NU_E", "NU_E_BAR", "NU_X"], 'ebx')):
             simtab[f'L_{f}'] = simtab[f'{6+j}:Le{fkey}[e/s]'] << u.erg / u.s
