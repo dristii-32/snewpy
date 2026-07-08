@@ -247,8 +247,8 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
         times = u.Quantity([model.get_time()[0],model.get_time()[-1]])            
     times.sort()
 
-    # set up energies: 0 to 100 MeV in steps of 200 keV
-    energies = np.linspace(0, 100, 501) << u.MeV    
+    #energy bins similar to SNOwGLoBES
+    energies = (np.linspace(0, 100, 201)+0.25) << u.MeV 
 
     flux = generate(model, flavor_transformation, d, times, energies)
     
