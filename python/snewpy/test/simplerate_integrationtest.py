@@ -35,7 +35,7 @@ class TestSimpleRate(unittest.TestCase):
         events = rc.run(fluence, detector, detector_effects=True)
         
         # Compute number of events in all interaction channels
-        total_events  = sum([chan.integrate_or_sum('energy').array.value for chan in events.values()])
+        total_events  = sum([chan.integrate_or_sum('energy').array.squeeze().value for chan in events.values()])
 
         #Super-K has 32kT inner volume
         print("Total events in Super-K-like detector (with smearing):" , 0.32*total_events)
