@@ -17,10 +17,6 @@ class TestSimpleRate(unittest.TestCase):
     def test_simplerate(self):
         """Integration test based on SNEWS2.0_rate_table_singleexample.py
         """
-        SNOwGLoBES_path = None
-
-        distance = 10 * u.kpc # Supernova distance 
-        detector = "wc100kt30prct" #SNOwGLoBES detector for water Cerenkov
         model = Bollig_2016(progenitor_mass=11.2<<u.Msun) # SN model
         transformation = AdiabaticMSW(MixingParameters('NORMAL')) # Desired flavor transformation
        
@@ -35,7 +31,7 @@ class TestSimpleRate(unittest.TestCase):
 
         print("Simulating detector effects ...")
         detector = "wc100kt30prct"
-        rc = RateCalculator(base_dir=SNOwGLoBES_path)
+        rc = RateCalculator()
         events = rc.run(fluence, detector, detector_effects=True)
         
         # Compute number of events in all interaction channels
