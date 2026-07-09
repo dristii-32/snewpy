@@ -314,7 +314,7 @@ def generate(model, flavor_transformation, d, times=None, energies=None):
     energies.sort()
     
     # Get the flux from the model and then intergate over time of each interval. 
-    flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
+    flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
     fluence = flux.integrate('time',limits=times)
     
     return fluence
