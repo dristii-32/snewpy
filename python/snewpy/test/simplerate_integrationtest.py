@@ -35,7 +35,8 @@ class TestSimpleRate(unittest.TestCase):
 
         print("Simulating detector effects with SNOwGLoBES ...")
         detector = "wc100kt30prct"
-        events = RateCalculator.run(fluence, detector, detector_effects=True)
+        rc = RateCalculator(base_dir=SNOwGLoBES_path)
+        events = rc.run(fluence, detector, detector_effects=True)
         aggregate_events = aggregate(events)
         
         # Use results to print the number of events in different interaction channels
