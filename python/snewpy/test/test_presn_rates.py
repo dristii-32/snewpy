@@ -13,7 +13,7 @@ rc = RateCalculator()
 distance = 200*u.pc
  #SNOwGLoBES detector for water Cerenkov
 T = np.geomspace(-1*u.hour, -1*u.min,1000)
-E = np.linspace(0,20,100)*u.MeV
+E = np.linspace(0,20,101)*u.MeV
 
 @pytest.mark.parametrize('model_class,model_params',[
     (presn.Odrzywolek_2010, {'progenitor_mass': 15*u.Msun}),
