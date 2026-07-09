@@ -176,6 +176,7 @@ def generate_time_series(model_path, model_type, flavor_transformation, d, outpu
     energies = np.linspace(0, 100, 501) << u.MeV
     
     flux = generate(model, flavor_transformation, d, times, energies)
+    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies)
     
     if output_filename is not None:
         if Path(output_filename).suffix != '.npz':
@@ -186,7 +187,7 @@ def generate_time_series(model_path, model_type, flavor_transformation, d, outpu
         else:
             output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
 
-    flux.save(output_filename)       
+    fluence.save(output_filename)       
     
     return output_filename
 
@@ -247,10 +248,13 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
         times = u.Quantity([model.get_time()[0],model.get_time()[-1]])            
     times.sort()
 
+    #energy with 0.2 MeV binning    
+    energies   = np.arange(0, 101, 0.2) << u.MeV
     #energy bins similar to SNOwGLoBES
-    energies = (np.linspace(0, 100, 201)+0.25) << u.MeV 
+    energies_t = (np.linspace(0, 100, 201)+0.25) << u.MeV 
 
     flux = generate(model, flavor_transformation, d, times, energies)
+    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies_t)
     
     if output_filename is not None:
         if Path(output_filename).suffix != '.npz':
@@ -261,7 +265,7 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
         else:
             output_filename = f'{model.name}.'+str(flavor_transformation)+f'.{times:.3f},'+f'{energies[0]:.3f}-'+f'{energies[-1]:.3f},'+f'{d:.3f}'+'.npz'
 
-    flux.save(output_filename)       
+    fluence.save(output_filename)       
     
     return output_filename
 
@@ -308,15 +312,11 @@ def generate(model, flavor_transformation, d, times=None, energies=None):
         energies = np.linspace(0, 100, 501) << u.MeV
     energies.sort()
     
-    # If an array of times are given (or None) inetrgate over time of each interval. 
-    # Technically this is a fluence but re-use name
-    if len(times) > 1:
-        flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
-        flux = flux.integrate('time',limits=times)
-    else:
-        flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
+    # Get the flux from the model and inetrgate over time of each interval. 
+    flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
+    fluence = flux.integrate('time',limits=times)
     
-    return flux
+    return fluence
 
 
 def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effects=True):
@@ -334,6 +334,8 @@ def simulate(SNOwGLoBESdir, tarball_path, detector_input="all", *, detector_effe
     detector_effects : bool
          Whether to account for detector smearing and efficiency.
     """
+    warn("simulate is deprecated. Please use `calculate` instead.", DeprecationWarning, stacklevel=2)
+    
     rc = RateCalculator(base_dir=SNOwGLoBESdir)
     if detector_input == 'all':
         detector_input = list(rc.detectors)
