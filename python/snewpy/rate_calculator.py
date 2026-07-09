@@ -423,7 +423,7 @@ class RateCalculator(SnowglobesData):
         Returns
         -------
             dict[str, Container]
-                A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
+                A nested dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
         """
         return self.read_detector(detector,material).run(flux, detector_effects=detector_effects)
 
@@ -434,12 +434,12 @@ def collate(rates):
     Parameters
     ----------
     dict[str, Container]
-                A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
+                A nested dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
 
     Returns
     -------
     dict[str, Container]
-                A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for the collated channels.
+                A nested dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for the collated channels.
     """
 
     def aggregate_channels(rates,patterns):
@@ -467,3 +467,24 @@ def collate(rates):
         collated_rates[detector] = aggregate_channels(rates[detector],patterns)
 
     return collated_rates  
+
+
+def aggregate(rates):
+    """Sum all the channels in the event rates / numbers table returned by RateCalculator.run 
+
+    Parameters
+    ----------
+    dict[str, Container]
+                A nested dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
+
+    Returns
+    -------
+    dict[str, Container]
+                A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) summed over all channels for a given detector.
+    """    
+    aggregate_rates = {}
+    for detector in rates:
+        aggregate_rates[detector] = sum(rates[channel] for channel in rates)
+
+    return aggregate_rates  
+
