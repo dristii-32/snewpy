@@ -252,7 +252,7 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
     #energy bins similar to SNOwGLoBES
     energies_t = (np.linspace(0, 100, 201)+0.25) << u.MeV 
 
-    flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
+    flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
     fluence = flux.integrate('time',limits=times).integrate('energy',limits=energies_t)
     times = fluence.time    
     
@@ -313,8 +313,8 @@ def generate(model, flavor_transformation, d, times=None, energies=None):
         energies = np.linspace(0, 100, 501) << u.MeV
     energies.sort()
     
-    # Get the flux from the model and then intergate over time of each interval. 
-    flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
+    # Get the flux from the model at all model times, and then intergate over time of each interval. 
+    flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
     fluence = flux.integrate('time',limits=times)
     
     return fluence
