@@ -905,12 +905,11 @@ class Mori_2023(PinchedModel):
             # E_rms^2 = <E^2> - <E>^2.
             Eavg = simtab[f'{9+j}:Em{fkey}[MeV]']
             Erms = simtab[f'{12+j}:Er{fkey}[MeV]']
-            E2 = Erms**2 + Eavg**2
-            x = E2 / Eavg**2
+            x = Erms**2 / Eavg**2
             alpha = (2-x) / (x-1)
 
             simtab[f'E_{f}'] = Eavg << u.MeV
-            simtab[f'E2_{f}'] = E2 << u.MeV**2
+            simtab[f'E2_{f}'] = Erms**2 << u.MeV**2
             simtab[f'ALPHA_{f}'] = alpha
 
 #            simtab[f'E_{f.name}'] = simtab[f'{9+j}:Em{fkey}[MeV]'] << u.MeV
@@ -941,13 +940,18 @@ class Takata_2025(PinchedModel):
 
         self.metadata = metadata
 
-        #Read ASCII data.
+        # Read ASCII data and clean up NaN values in float columns.
         simtab = Table.read(datafile, format='ascii')
+        has_nan = np.zeros(len(simtab), dtype=bool)
+        for col in simtab.itercols():
+            if col.info.dtype.kind == 'f':
+                has_nan |= np.isnan(col)
+        simtab = simtab[~has_nan]
 
-        #Remove the first table row, which appears to have zero input.
+        # Remove the first table row, which appears to have zero input.
         simtab = simtab[simtab['1:t_sim[s]'] > 0]
 
-        #Get grid of model times.
+        # Get grid of model times.
         simtab['TIME'] = simtab['2:t_pb[s]'] << u.s
         for j, (f, fkey) in enumerate(zip(["NU_E", "NU_E_BAR", "NU_X"], 'ebx')):
             simtab[f'L_{f}'] = simtab[f'{6+j}:Le{fkey}[e/s]'] << u.erg / u.s
