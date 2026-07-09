@@ -48,5 +48,3 @@ class TestSimpleRate(unittest.TestCase):
 
         assert discrepancy < 0.001, f"Number of unsmeared events computed for SK is {sk_computed}, should be {sk_expected}"
 
-        assert discrepancy < 0.001, f"Number of unsmeared events computed for SK is {sk_computed}, should be {sk_expected}"
-        assert discrepancy_smeared < 0.001, f"Number of smeared events computed for SK is {sk_computed_smeared}, should be {sk_expected_smeared}"
