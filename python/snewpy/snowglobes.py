@@ -174,9 +174,9 @@ def generate_time_series(model_path, model_type, flavor_transformation, d, outpu
 
     # set up energies: 0 to 100 MeV in steps of 200 keV
     energies = np.linspace(0, 100, 501) << u.MeV
-    
-    flux = generate(model, flavor_transformation, d, times, energies)
-    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies)
+
+    flux = snmodel.get_flux(t=times, E=energy,  distance=d, flavor_xform=flavor_transformation)
+    fluence = flux.integrate('time',limits=times).integrate('energy',limits=energies)
     
     if output_filename is not None:
         if Path(output_filename).suffix != '.npz':
@@ -253,8 +253,9 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
     #energy bins similar to SNOwGLoBES
     energies_t = (np.linspace(0, 100, 201)+0.25) << u.MeV 
 
-    flux = generate(model, flavor_transformation, d, times, energies)
-    fluence = flux.integrate('time', limits = times).integrate('energy', limits = energies_t)
+    flux = model.get_flux(t=times, E=energies, distance=d, flavor_xform=flavor_transformation)
+    fluence = flux.integrate('time',limits=times).integrate('energy',limits=energies_t)
+    times = fluence.time    
     
     if output_filename is not None:
         if Path(output_filename).suffix != '.npz':
@@ -271,7 +272,7 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
 
 
 def generate(model, flavor_transformation, d, times=None, energies=None):
-    """Generate a flux at a given time or array of fluences for array of time bins, for a given set of energies.
+    """Generate a flux at a given time or array of fluences for array of time bins, for a given set of energy bins.
     Flux / fluences will be output into a numpy npz file with either the filename provided or derived from the model name
 
     Parameters
@@ -312,9 +313,9 @@ def generate(model, flavor_transformation, d, times=None, energies=None):
         energies = np.linspace(0, 100, 501) << u.MeV
     energies.sort()
     
-    # Get the flux from the model and inetrgate over time of each interval. 
+    # Get the flux from the model and then intergate over time of each interval, and energy bin. 
     flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
-    fluence = flux.integrate('time',limits=times)
+    fluence = flux.integrate('time',limits=times).integrate('energy',limits=energies)
     
     return fluence
 
