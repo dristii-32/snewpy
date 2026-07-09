@@ -7,7 +7,7 @@ from snewpy import snowglobes
 from snewpy.models.ccsn import Bollig_2016
 from snewpy.neutrino import MassHierarchy, MixingParameters
 from snewpy.flavor_transformation import AdiabaticMSW
-from snewpy.rate_calculator import RateCalculator, aggregate
+from snewpy.rate_calculator import RateCalculator
 
 import numpy as np
 import astropy.units as u
