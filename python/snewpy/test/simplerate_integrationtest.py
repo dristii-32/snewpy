@@ -29,7 +29,7 @@ class TestSimpleRate(unittest.TestCase):
         energies = np.linspace(0,100,501)<<u.MeV
         distance = 10*u.kpc
         #get the flux from the model
-        flux = model.get_flux(t=times, E=energies, distance=distance, transformation)
+        flux = model.get_flux(t=times, E=energies, distance=distance, flavor_xform=transformation)
         fluence = flux.integrate('time')
 
         print("Simulating detector effects with SNOwGLoBES ...")
