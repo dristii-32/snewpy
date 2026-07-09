@@ -515,15 +515,15 @@ def collate(tarball_path, skip_plots=False, *, smearing=True):
     return results 
     
 
-def calculate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
-    """Calculate expected event rates for the given neutrino flux files and the given (set of) SNOwGLoBES detector(s).
+def calculate(SNOwGLoBESdir, fluence, detector="all", *, detector_effects=True):
+    """Calculate expected event rates for the given neutrino fluence files and the given (set of) SNOwGLoBES detector(s).
     These event rates are given as a function of the neutrino energy and time, for each observale interaction channel 
 
     Parameters
     ----------
     SNOwGLoBESdir : str or None
         Path to SNOwGLoBES directory. Set to ``None`` to automatically use the latest supported SNOwGLoBES release.
-    flux : str or Container object
+    fluence : str or Container object
         if string, the file of that name will be opened by Container.load
     detector : str or array of str
         Name of detector. If ``"all"``, will use all detectors supported by SNOwGLoBES.
@@ -549,17 +549,17 @@ def calculate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     else:
         smearing = "smeared"
         
-    if isinstance(flux,str): #read the flux in the file
-        flux_filename = flux
-        logging.info(f'Reading fluxes / fluences from {flux_filename}')
-        flux = Container.load(flux_filename)
-        flux_filename_base = flux_filename[:flux_filename.rfind('.')]        
+    if isinstance(fluence,str): #read the fluence in the file
+        fluence_filename = fluence
+        logging.info(f'Reading fluences from {fluence_filename}')
+        fluence = Container.load(fluence_filename)
+        fluence_filename_base = fluence_filename[:fluence_filename.rfind('.')]        
     else:
-        flux_filename = None
+        fluence_filename = None
 
     rates = {}            
     for det in detector_list:        
-        rates[det] = rc.run(flux, det, detector_effects=detector_effects)
+        rates[det] = rc.run(fluence, det, detector_effects=detector_effects)
 
     def aggregate_channels(rates,patterns):
         for name, pattern in patterns.items():
@@ -585,12 +585,12 @@ def calculate(SNOwGLoBESdir, flux, detector="all", *, detector_effects=True):
     for detector in rates:
         collated_rates[detector] = aggregate_channels(rates[detector],patterns)
                 
-    if flux_filename is not None: 
+    if fluence_filename is not None: 
         # save result to file
         if detector == 'all': 
-            collated_rates_filename = flux_filename_base+'.all_'+smearing+'_collated.npz'
+            collated_rates_filename = fluence_filename_base+'.all_'+smearing+'_collated.npz'
         else:
-            collated_rates_filename = flux_filename_base+'.{detector}_'+smearing+'_collated.npz'
+            collated_rates_filename = fluence_filename_base+'.{detector}_'+smearing+'_collated.npz'
         logging.info(f'Saving detector event rates / numbers to {collated_rates_filenames}')
         np.savez(collated_rates_filename, **{det: np.array(collated_rates[det]) for det in collated_rates})
         return collated_rates_filename
