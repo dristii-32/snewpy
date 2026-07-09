@@ -272,8 +272,9 @@ def generate_fluence(model_path, model_type, flavor_transformation, d, output_fi
 
 
 def generate(model, flavor_transformation, d, times=None, energies=None):
-    """Generate a flux at a given time or array of fluences for array of time bins, for a given set of energy bins.
-    Flux / fluences will be output into a numpy npz file with either the filename provided or derived from the model name
+    """Generate an array of fluences for an array of time bins, don't integrate over the energy.    
+       For those reading this, not integrating over energy allows the energy integration to be applied 
+       as needed elsewhere, e.g. the RateCalulator, if smearing is applied
 
     Parameters
     ----------
@@ -283,10 +284,10 @@ def generate(model, flavor_transformation, d, times=None, energies=None):
     d : astropy Quantity 
         Distance to supernova
     times : astropy.Quantity or None
-        time to evaluate flux or array of time bin edges over which to compute the fluence
+        array of time bin edges over which to compute the fluence
         if None, use the full model time interval for the fluence
     energies : astropy.Quantity or None
-        list of energy bin edges at which to compute the flux
+        list of energies at which to compute the fluence
 
     Returns
     -------
@@ -313,9 +314,9 @@ def generate(model, flavor_transformation, d, times=None, energies=None):
         energies = np.linspace(0, 100, 501) << u.MeV
     energies.sort()
     
-    # Get the flux from the model and then intergate over time of each interval, and energy bin. 
+    # Get the flux from the model and then intergate over time of each interval. 
     flux = model.get_flux(t=model.get_time(), E=energies, distance=d, flavor_xform=flavor_transformation)
-    fluence = flux.integrate('time',limits=times).integrate('energy',limits=energies)
+    fluence = flux.integrate('time',limits=times)
     
     return fluence
 
