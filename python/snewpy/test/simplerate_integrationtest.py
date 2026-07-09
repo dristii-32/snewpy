@@ -4,7 +4,6 @@
 import unittest
 
 from snewpy import snowglobes
-from snewpy import model_path 
 from snewpy.models.ccsn import Bollig_2016
 
 import astropy.units as u
