@@ -461,7 +461,7 @@ def collate(rates):
     patterns = {'nc':'nc_',
                 'eES':'_e', 
                 'coh_helm_Ar':r'coh_helm.*_Ar', 'coh_helm_Ge':r'coh_helm.*_Ge', 'coh_helm_Xe':r'coh_helm.*_Xe',
-                'coh_klein-nystrand_Ar':r'coh_klein.*_Ar', 'coh_klein-nystrand_Ge':r'coh_klein.*_Ge', 'coh_klein-nystrand_Xe':r'coh_kelin.*_Xe'                
+                'coh_klein-nystrand_Ar':r'coh_klein.*_Ar', 'coh_klein-nystrand_Ge':r'coh_klein.*_Ge', 'coh_klein-nystrand_Xe':r'coh_klein.*_Xe'                
                }
     for detector in rates:
         collated_rates[detector] = aggregate_channels(rates[detector],patterns)
