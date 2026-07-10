@@ -2,24 +2,16 @@
 """Integration test based on SNEWS2.0_rate_table_singleexample.py
 """
 import unittest
-from snewpy import snowglobes
-from snewpy import model_path 
-
+from snewpy.rate_calculator import RateCalculator
 from snewpy.models import ccsn
 import astropy.units as u
-
-def preload_model(name:str, **parameters):
-    #initialize the model with given name and parameters
-    model = ccsn.__dict__[name](**parameters)
-    return model
-
 
 class TestSimpleRate(unittest.TestCase):
     
     def test_simplerate(self):
         """Integration test based on SNEWS2.0_rate_table_singleexample.py
         """
-        model = Bollig_2016(progenitor_mass=11.2<<u.Msun) # SN model
+        model = ccsn.Bollig_2016(progenitor_mass=11.2<<u.Msun) # SN model
         transformation = AdiabaticMSW(MixingParameters('NORMAL')) # Desired flavor transformation
        
         # Now, do the main work:
