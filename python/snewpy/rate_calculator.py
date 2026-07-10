@@ -423,7 +423,7 @@ class RateCalculator(SnowglobesData):
         Returns
         -------
             dict[str, Container]
-                A nested dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
+                A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) for each channel.
         """
         return self.read_detector(detector,material).run(flux, detector_effects=detector_effects)
 
@@ -457,14 +457,13 @@ def collate(rates):
         return rates
 
     # make collated rate table
-    collated_rates = {}
     patterns = {'nc':'nc_',
                 'eES':'_e', 
                 'coh_helm_Ar':r'coh_helm.*_Ar', 'coh_helm_Ge':r'coh_helm.*_Ge', 'coh_helm_Xe':r'coh_helm.*_Xe',
                 'coh_klein-nystrand_Ar':r'coh_klein.*_Ar', 'coh_klein-nystrand_Ge':r'coh_klein.*_Ge', 'coh_klein-nystrand_Xe':r'coh_klein.*_Xe'                
                }
-    for detector in rates:
-        collated_rates[detector] = aggregate_channels(rates[detector],patterns)
+
+    collated_rates = aggregate_channels(rates,patterns)
 
     return collated_rates  
 
@@ -482,9 +481,7 @@ def aggregate(rates):
     dict[str, Container]
                 A dictionary with interaction rates (as instances of :class:`snewpy.flux.Container`) summed over all channels for a given detector.
     """    
-    aggregate_rates = {}
-    for detector in rates:
-        aggregate_rates[detector] = sum(rates[channel] for channel in rates)
+    aggregate_rates = sum(rates[channel] for channel in rates)
 
     return aggregate_rates  
 
