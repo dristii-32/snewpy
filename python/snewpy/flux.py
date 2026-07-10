@@ -511,6 +511,39 @@ class Container(_ContainerBase):
         plt.ylabel(f'{fP.__class__.__name__}, {x.unit._repr_latex_()}')
         return lines
 
+        """def __getstate__(self):
+            def _save_quantity(name):
+                values = self.__dict__[name]
+                try:
+                    array = values.to_value()
+                    unit = values.unit.to_string()
+                    return {name:array, f'_{name}_unit':unit}
+                except:
+                    return {name:values}            
+            dict = {}
+            for name in ['array','time','energy']:
+                dict.update(_save_quantity(name))
+            dict['flavor'] = np.array(self.flavor, dtype=object)            
+            dict['_class_name']=self.__class__.__name__
+            dict['_integrable_axes']=np.array([int(a) for a in self._integrable_axes] }
+            return dict"""
+
+        """def __setstate__(self, dict):
+            def _load_quantity(name):
+                array = data_dict[name]
+                try:
+                    unit = str(f[f'_{name}_unit'])
+                    return array<<u.Unit(unit)
+                except KeyError:
+                    return array
+                    
+            class_name = dict['_class_name']
+            array = _load_quantity('array')
+            cls = Container[array.unit, class_name]
+            self = cls(data=array,
+                       **{name:_load_quantity(name) for name in ['time','energy','flavor']},
+                       integrable_axes=dict['_integrable_axes'])            """
+            
 #some standard container classes that can be used for 
 Flux = Container['1/(MeV*s*m**2)', "d2FdEdT"]
 Fluence = Container[Flux.unit*u.s, "dFdE"]
