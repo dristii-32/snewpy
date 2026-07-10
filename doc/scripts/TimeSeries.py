@@ -25,5 +25,5 @@ events = rc.run(fluence, detector, detector_effects=True)
 
 with channel in events:
     filename = f"{model}.{transformation}.{times[0]:.3f}-{times[-1]:.3f},{energies[0]:.3f}-{energies[-1]:.3f},{distance:.3f}.{channel}.npz"
-    events['ibd'].save(filename)
+    events[channel].save(filename)
 
