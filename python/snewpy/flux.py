@@ -525,7 +525,7 @@ class Container(_ContainerBase):
                 state.update(_save_quantity(name))
             state['flavor'] = np.array(self.flavor, dtype=object)            
             state['_class_name']=self.__class__.__name__
-            state['_integrable_axes']=np.array([int(a) for a in self._integrable_axes] }
+            state['_integrable_axes']=np.array([int(a) for a in self._integrable_axes])
             return state
 
         def __setstate__(self, state):
@@ -536,10 +536,9 @@ class Container(_ContainerBase):
                     return array<<u.Unit(unit)
                 except KeyError:
                     return array
-                    
-            array = _load_quantity('array')
             for name in ['array','time','energy']:
                 self.__dict__[name] = _load_quantity(name)
+            self.flavor = state['flavor']
             self.integrable_axes=state['_integrable_axes']
 
 #some standard container classes that can be used for 
