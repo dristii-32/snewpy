@@ -3,7 +3,7 @@ from warnings import warn
 import numpy as np
 from astropy import units as u
 
-from snewpy.neutrino import Flavor
+from snewpy.flavor import ThreeFlavor
 from snewpy.models.base import SupernovaModel
 
 class ExtendedModel(SupernovaModel):
