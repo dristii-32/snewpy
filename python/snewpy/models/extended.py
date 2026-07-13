@@ -26,6 +26,7 @@ class ExtendedModel(SupernovaModel):
 
         self.k = k
         if A is None:
+            A = {}
             tf = self.t_final            
             for flv in ThreeFlavor:
                 Lf = self.L_final[flv]
