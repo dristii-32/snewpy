@@ -26,8 +26,10 @@ class ExtendedModel(SupernovaModel):
 
         self.k = k
         if A is None:
+            tf = self.t_final            
             for flv in ThreeFlavor:
-                A[flv] = self.L_final / (self.t_final.value**k * np.exp(-(self.t_final/tau_c)**alpha))        
+                Lf = self.L_final[flv]
+                A[flv] = self.Lf / (tf.value**k * np.exp(-(tf/tau_c)**alpha))        
         self.A =  A            
         self.tau_c = tau_c
         self.alpha = alpha
