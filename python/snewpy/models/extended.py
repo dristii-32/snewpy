@@ -29,7 +29,7 @@ class ExtendedModel(SupernovaModel):
             tf = self.t_final            
             for flv in ThreeFlavor:
                 Lf = self.L_final[flv]
-                A[flv] = self.Lf / (tf.value**k * np.exp(-(tf/tau_c)**alpha))        
+                A[flv] = Lf / (tf.value**k * np.exp(-(tf/tau_c)**alpha))        
         self.A =  A            
         self.tau_c = tau_c
         self.alpha = alpha
