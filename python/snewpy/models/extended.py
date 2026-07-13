@@ -35,7 +35,7 @@ class ExtendedModel(SupernovaModel):
         self.tau_c = tau_c
         self.alpha = alpha
 
-    def _get_initial_spectra_dict(self, t, E):
+    def _get_initial_spectra_dict(self, t, E, flavors=ThreeFlavor):
         """Get neutrino spectra/luminosity curves before oscillation
         
         Parameters
@@ -47,15 +47,16 @@ class ExtendedModel(SupernovaModel):
         """        
         
         model_spectra = model._get_initial_spectra_dict(self, t, E)
-        array = model_spectra
-        
+                
         # Select times after the end of the model
         select = t > self.t_final
         L_ext = self.get_extended_luminosity(t)
         
-        extended_spectra = {} 
-        for flavor in Flavor:
-            extended_spectra[flavor] = model_spectra[flavor] * L_ext / L_final[flavor]         
+        array = {} 
+        for flavor in flavors:
+            array[flavor] = model_spectra[flavor]
+            model_spectra_final[flavor]  = array[flavor][-1]
+            extended_spectra[flavor] = model_spectra_final[flavor] * L_ext / L_final[flavor]         
             array[flavor].append(extended_spectra[flavor])
         
         return array
