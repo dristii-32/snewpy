@@ -22,13 +22,12 @@ class ExtendedModel(SupernovaModel):
                 else:
                     setattr(self, method_name, getattr(base_model, method_name))
         self.t_final = self.time[-1]
-        self.L_final = {flv: self.luminosity[flv][-1] for flv in Flavor}
+        self.L_final = {flv: self.luminosity[flv][-1] for flv in ThreeFlavor}
 
         self.k = k
         if A is None:
-            tf = self.t_final
-            Lf = self.L_final[flavor]
-            A = Lf / (tf.value**k * np.exp(-(tf/tau_c)**alpha))        
+            for flv in ThreeFlavor:
+                A[flv] = self.L_final / (self.t_final.value**k * np.exp(-(self.t_final/tau_c)**alpha))        
         self.A =  A            
         self.tau_c = tau_c
         self.alpha = alpha
