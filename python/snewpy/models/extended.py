@@ -6,11 +6,7 @@ from astropy import units as u
 from snewpy.neutrino import Flavor
 from snewpy.models.base import SupernovaModel
 
-
-class ExtendedModel(SupernovaModel):
-    """Class defining a supernova model with a cooling tail extension."""
-
-    def __init__(self, base_model):
+    def __init__(self, base_model, k=-1., A=None, tau_c=36. * u.s, alpha=2.66):
         """Initialize extended supernova model class."""
         if not isinstance(base_model, SupernovaModel):
             raise TypeError("ExtendedModel.__init__ requires a SupernovaModel object")
@@ -25,25 +21,51 @@ class ExtendedModel(SupernovaModel):
         self.t_final = self.time[-1]
         self.L_final = {flv: self.luminosity[flv][-1] for flv in Flavor}
 
-    def get_initial_spectra(self, *args, **kwargs):
-        """Get neutrino spectra/luminosity curves before oscillation"""
-        return self._get_initial_spectra(*args, **kwargs)
+        self.k = k
+        if A is None:
+            tf = self.t_final
+            Lf = self.L_final[flavor]
+            A = Lf / (tf.value**k * np.exp(-(tf/tau_c)**alpha))        
+        self.A =  A            
+        self.tau_c = tau_c
+        self.alpha = alpha
 
-    def get_extended_luminosity(self, t, k=-1., A=None, tau_c=36. * u.s, alpha=2.66, flavor = Flavor.NU_E):
+    def get_initial_spectra(self, t, E):
+        """Get neutrino spectra/luminosity curves before oscillation
+        
+        Parameters
+        ----------
+        t : astropy.Quantity
+            Times to add to supernova model.
+        E : astropy.Quantity 
+            Energies to evaluate the initial spectra.            
+        """        
+        
+        model_spectra = model._get_initial_spectra_dict(self, t, E)
+        array = model_spectra
+        
+        # Select times after the end of the model
+        select = t > self.t_final
+        L_ext = self.get_extended_luminosity(t)
+        
+        extended_spectra = {} 
+        for flavor in Flavor:
+            extended_spectra[flavor] = model_spectra[flavor] * L_ext / L_final[flavor]         
+            array[flavor].append(extended_spectra[flavor])
+        
+        return Spectrum(data=array
+                        flavor=model.flavor, 
+                        time=t,
+                        energy=E,
+                        integrable_axes=model._integrable_axes)
+
+    def get_extended_luminosity(self, t):
         """Get neutrino luminosity from supernova cooling tail luminosity model.
 
         Parameters
         ----------
         t : astropy.Quantity
             Time to evaluate luminosity.
-        k : float
-            Power law factor (default: -1)
-        A : astropy.Quantity
-            Normalization factor (default: None, automatically match original model data)
-        tau_c : astropy.Quantity
-            Exponential decay characteristic timescale (default: 36 s)
-        alpha : float
-            Exponential decay factor (default: 2.66)
 
         Returns
         -------
@@ -52,35 +74,6 @@ class ExtendedModel(SupernovaModel):
         """
         if t.value < 0.5:
             warn("Extended luminosity model not applicable to early times")
-        if A is None:
-            tf = self.t_final
-            Lf = self.L_final[flavor]
-            A = Lf / (tf.value**k * np.exp(-(tf/tau_c)**alpha))
-        return A * t.value**k * np.exp(-(t/tau_c)**alpha)
+        return self.A * t.value**self.k * np.exp(-(t/self.tau_c)**self.alpha)
 
-    def extend(self, ts, k=-1., A=None, tau_c=36. * u.s, alpha=2.66):
-        """Extend supernova model to specific times.
 
-        Parameters
-        ----------
-        ts : astropy.Quantity
-            Times to add to supernova model.
-        k : float
-            Power law factor (default: -1)
-        A : astropy.Quantity
-            Normalization factor (default: None, automatically match original model data)
-        tau_c : astropy.Quantity
-            Exponential decay characteristic timescale (default: 36 s)
-        alpha : float
-            Exponential decay factor (default: 2.66)
-        """
-        # Select times after the end of the model
-        select = ts > self.t_final
-
-        for t in ts[select]:
-            self.time = np.append(self.time, t)
-            for flavor in Flavor:
-                L_ext = self.get_extended_luminosity(t, k = k, A = A, tau_c = tau_c, alpha = alpha, flavor = flavor)
-                self.luminosity[flavor] = np.append(self.luminosity[flavor], L_ext)
-                self.meanE[flavor] = np.append(self.meanE[flavor], self.meanE[flavor][-1])
-                self.pinch[flavor] = np.append(self.pinch[flavor], self.pinch[flavor][-1])
