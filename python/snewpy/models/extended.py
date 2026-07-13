@@ -6,6 +6,9 @@ from astropy import units as u
 from snewpy.neutrino import Flavor
 from snewpy.models.base import SupernovaModel
 
+class ExtendedModel(SupernovaModel):
+    """Class defining a supernova model with a cooling tail extension."""
+
     def __init__(self, base_model, k=-1., A=None, tau_c=36. * u.s, alpha=2.66):
         """Initialize extended supernova model class."""
         if not isinstance(base_model, SupernovaModel):
