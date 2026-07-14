@@ -14,14 +14,7 @@ class ExtendedModel(SupernovaModel):
         if not isinstance(base_model, SupernovaModel):
             raise TypeError("ExtendedModel.__init__ requires a SupernovaModel object")
 
-        """self.__dict__ = base_model.__dict__.copy()
-        for method_name in dir(base_model):
-            if callable(getattr(base_model, method_name)) and method_name[0] != '_':
-                if method_name == 'get_initial_spectra':
-                    self._get_initial_spectra = getattr(base_model, method_name)
-                else:
-                    setattr(self, method_name, getattr(base_model, method_name))"""
-        self.model = base_model
+        self.base_model = base_model
         super().__init__(base_model.time,base_model.metadata)        
 
         self.k = k
@@ -42,17 +35,17 @@ class ExtendedModel(SupernovaModel):
             Energies to evaluate the initial spectra.            
         """        
         
-        model_spectra = self.model._get_initial_spectra_dict(self, t, E)
+        base_model_spectra = self.base_model._get_initial_spectra_dict(self, t, E)
                 
         # Select times after the end of the model
-        t_ext = t > self.t_final
-        f_ext = self.get_extended_time_dependence(t)
+        t_ext = t > self.time[-1]
+        f_ext = self.get_extended_time_dependence(t_ext)
         
         array = {} 
         for flavor in flavors:
-            array[flavor] = model_spectra[flavor]
-            extended_spectra[flavor] = np.outer( f_ext, model_spectra[flavor][-1,:])
-            array[flavor].append(extended_spectra[flavor])
+            array[flavor] = base_model_spectra[flavor]
+            extended_model_spectra[flavor] = np.outer( f_ext, base_model_spectra[flavor][-1,:])
+            array[flavor].append(extended_model_spectra[flavor])
         
         return array
 
@@ -69,7 +62,7 @@ class ExtendedModel(SupernovaModel):
         astropy.Quantity
             extended time dependence calculated from cooling tail model.
         """
-        if t.value < 0.5:
+        if t < 0.5 * u.s:
             warn("Extended luminosity model not applicable to early times")
         return self.A * t.value**self.k * np.exp(-(t/self.tau_c)**self.alpha)
 
