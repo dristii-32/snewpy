@@ -65,7 +65,7 @@ class ExtendedModel(SupernovaModel):
         astropy.Quantity
             extended time dependence calculated from cooling tail model.
         """
-        if t < 0.5 * u.s:
+        if t < u.Quantity(0.5*u.s):
             warn("Extended luminosity model not applicable to early times")
         return self.A * t.value**self.k * np.exp(-(t/self.tau_c)**self.alpha)
 
