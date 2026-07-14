@@ -47,8 +47,8 @@ class ExtendedModel(SupernovaModel):
         array = {} 
         for flavor in flavors:
             array[flavor] = base_model_spectra[flavor]
-            extended_model_spectra[flavor] = np.outer( f_ext, base_model_spectra[flavor][-1,:])
-            array[flavor].append(extended_model_spectra[flavor])
+            extended_model_spectra = np.outer( f_ext, base_model_spectra[flavor][-1,:])
+            array[flavor].append(extended_model_spectra)
         
         return array
 
