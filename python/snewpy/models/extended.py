@@ -52,21 +52,24 @@ class ExtendedModel(SupernovaModel):
         
         return array
 
-    def get_extended_time_dependence(self, t):
+    def get_extended_time_dependence(self, times):
         """Get neutrino luminosity from supernova cooling tail luminosity model.
 
         Parameters
         ----------
-        t : astropy.Quantity
-            Time to evaluate luminosity.
+        times : astropy.Quantity
+            Times to evaluate luminosity.
 
         Returns
         -------
         astropy.Quantity
             extended time dependence calculated from cooling tail model.
         """
-        if t[0] < 0.5*u.s:
+        if times[0] < 0.5*u.s:
             warn("Extended luminosity model not applicable to early times")
-        return self.A * t**self.k * np.exp(-(t/self.tau_c)**self.alpha)
+        f = np.empty(len(times))
+        for i in len(times):
+            f[i] = self.A * times[i]**self.k * np.exp(-(times[i]/self.tau_c)**self.alpha)
+        return f
 
 
