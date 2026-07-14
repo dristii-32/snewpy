@@ -38,7 +38,7 @@ class ExtendedModel(SupernovaModel):
         t = u.Quantity(t, ndmin=1)
         E = u.Quantity(E, ndmin=1)        
         
-        base_model_spectra = self.base_model._get_initial_spectra_dict(self, t, E)
+        base_model_spectra = self.base_model._get_initial_spectra_dict(t, E)
                 
         # Select times after the end of the model
         t_ext = t > self.time[-1]
