@@ -22,16 +22,12 @@ class ExtendedModel(SupernovaModel):
                 else:
                     setattr(self, method_name, getattr(base_model, method_name))"""
         self.model = base_model
-        self.t_final = self.time[-1]
-        self.L_final = {flv: self.luminosity[flv][-1] for flv in ThreeFlavor}
+        self.t_final = self.model.get_time()[-1]
+        #self.L_final = {flv: self.luminosity[flv][-1] for flv in ThreeFlavor}
 
         self.k = k
         if A is None:
-            A = {}
-            tf = self.t_final            
-            for flv in ThreeFlavor:
-                Lf = self.L_final[flv]
-                A[flv] = Lf / (tf.value**k * np.exp(-(tf/tau_c)**alpha))        
+            A = 1 / ( self.t_final.value**k * np.exp(-(self.t_final/tau_c)**alpha) ) 
         self.A =  A            
         self.tau_c = tau_c
         self.alpha = alpha
@@ -51,18 +47,18 @@ class ExtendedModel(SupernovaModel):
                 
         # Select times after the end of the model
         t_ext = t > self.t_final
-        L_ext = self.get_extended_luminosity(t)
+        f_ext = self.get_extended_time_dependence(t)
         
         array = {} 
         for flavor in flavors:
             array[flavor] = model_spectra[flavor]
             model_spectra_final[flavor]  = array[flavor][-1,:]
-            extended_spectra[flavor] = model_spectra_final[flavor] * L_ext / L_final[flavor]         
+            extended_spectra[flavor] = model_spectra_final[flavor] * f_ext
             array[flavor].append(extended_spectra[flavor])
         
         return array
 
-    def get_extended_luminosity(self, t):
+    def get_extended_extended_time_dependence(self, t):
         """Get neutrino luminosity from supernova cooling tail luminosity model.
 
         Parameters
@@ -73,7 +69,7 @@ class ExtendedModel(SupernovaModel):
         Returns
         -------
         astropy.Quantity
-            Luminosity calculated from cooling tail model.
+            extended time dependence calculated from cooling tail model.
         """
         if t.value < 0.5:
             warn("Extended luminosity model not applicable to early times")
