@@ -53,7 +53,7 @@ class ExtendedModel(SupernovaModel):
         return array
 
     def get_extended_time_dependence(self, times):
-        """Get neutrino luminosity from supernova cooling tail luminosity model.
+        """Get time dependence of extended times from supernova cooling tail model.
 
         Parameters
         ----------
