@@ -22,12 +22,11 @@ class ExtendedModel(SupernovaModel):
                 else:
                     setattr(self, method_name, getattr(base_model, method_name))"""
         self.model = base_model
-        self.t_final = self.model.get_time()[-1]
-        #self.L_final = {flv: self.luminosity[flv][-1] for flv in ThreeFlavor}
+        super().__init__(model.time,model.metadata)        
 
         self.k = k
         if A is None:
-            A = 1 / ( self.t_final.value**k * np.exp(-(self.t_final/tau_c)**alpha) ) 
+            A = 1 / ( self.time[-1].value**k * np.exp(-(self.time[-1]/tau_c)**alpha) ) 
         self.A =  A            
         self.tau_c = tau_c
         self.alpha = alpha
@@ -52,13 +51,12 @@ class ExtendedModel(SupernovaModel):
         array = {} 
         for flavor in flavors:
             array[flavor] = model_spectra[flavor]
-            model_spectra_final[flavor]  = array[flavor][-1,:]
-            extended_spectra[flavor] = model_spectra_final[flavor] * f_ext
+            extended_spectra[flavor] = np.outer( f_ext, model_spectra[flavor][-1,:])
             array[flavor].append(extended_spectra[flavor])
         
         return array
 
-    def get_extended_extended_time_dependence(self, t):
+    def get_extended_time_dependence(self, t):
         """Get neutrino luminosity from supernova cooling tail luminosity model.
 
         Parameters
