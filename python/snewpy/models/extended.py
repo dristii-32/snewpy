@@ -67,9 +67,8 @@ class ExtendedModel(SupernovaModel):
         """
         if times[0] < 0.5*u.s:
             warn("Extended luminosity model not applicable to early times")
-        f = np.empty(len(times))
-        for i in range(len(times)):
-            f[i] = self.A * times[i]**self.k * np.exp(-(times[i]/self.tau_c)**self.alpha)
-        return f
+            
+        return self.A * times[i]**self.k * np.exp(-(times[i]/self.tau_c).value**self.alpha)
+
 
 
