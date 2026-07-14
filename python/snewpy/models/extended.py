@@ -34,6 +34,9 @@ class ExtendedModel(SupernovaModel):
         E : astropy.Quantity 
             Energies to evaluate the initial spectra.            
         """        
+        #convert input arguments to 1D arrays
+        t = u.Quantity(t, ndmin=1)
+        E = u.Quantity(E, ndmin=1)        
         
         base_model_spectra = self.base_model._get_initial_spectra_dict(self, t, E)
                 
