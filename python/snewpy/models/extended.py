@@ -19,7 +19,7 @@ class ExtendedModel(SupernovaModel):
 
         self.k = k
         if A is None:
-            A = 1 / ( self.time[-1].value**k * np.exp(-(self.time[-1]/tau_c)**alpha) ) 
+            A = 1 / ( self.time[-1]**k * np.exp(-(self.time[-1]/tau_c)**alpha) ) 
         self.A =  A            
         self.tau_c = tau_c
         self.alpha = alpha
@@ -67,6 +67,6 @@ class ExtendedModel(SupernovaModel):
         """
         if t[0] < 0.5*u.s:
             warn("Extended luminosity model not applicable to early times")
-        return self.A * t.value**self.k * np.exp(-(t/self.tau_c)**self.alpha)
+        return self.A * t**self.k * np.exp(-(t/self.tau_c)**self.alpha)
 
 
