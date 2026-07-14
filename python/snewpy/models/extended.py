@@ -49,13 +49,13 @@ class ExtendedModel(SupernovaModel):
         model_spectra = model._get_initial_spectra_dict(self, t, E)
                 
         # Select times after the end of the model
-        select = t > self.t_final
+        t_ext = t > self.t_final
         L_ext = self.get_extended_luminosity(t)
         
         array = {} 
         for flavor in flavors:
             array[flavor] = model_spectra[flavor]
-            model_spectra_final[flavor]  = array[flavor][-1]
+            model_spectra_final[flavor]  = array[flavor][-1,:]
             extended_spectra[flavor] = model_spectra_final[flavor] * L_ext / L_final[flavor]         
             array[flavor].append(extended_spectra[flavor])
         
