@@ -22,7 +22,7 @@ class ExtendedModel(SupernovaModel):
                 else:
                     setattr(self, method_name, getattr(base_model, method_name))"""
         self.model = base_model
-        super().__init__(model.time,model.metadata)        
+        super().__init__(base_model.time,base_model.metadata)        
 
         self.k = k
         if A is None:
