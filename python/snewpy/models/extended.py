@@ -14,13 +14,14 @@ class ExtendedModel(SupernovaModel):
         if not isinstance(base_model, SupernovaModel):
             raise TypeError("ExtendedModel.__init__ requires a SupernovaModel object")
 
-        self.__dict__ = base_model.__dict__.copy()
+        """self.__dict__ = base_model.__dict__.copy()
         for method_name in dir(base_model):
             if callable(getattr(base_model, method_name)) and method_name[0] != '_':
                 if method_name == 'get_initial_spectra':
                     self._get_initial_spectra = getattr(base_model, method_name)
                 else:
-                    setattr(self, method_name, getattr(base_model, method_name))
+                    setattr(self, method_name, getattr(base_model, method_name))"""
+        self.model = base_model
         self.t_final = self.time[-1]
         self.L_final = {flv: self.luminosity[flv][-1] for flv in ThreeFlavor}
 
@@ -46,7 +47,7 @@ class ExtendedModel(SupernovaModel):
             Energies to evaluate the initial spectra.            
         """        
         
-        model_spectra = model._get_initial_spectra_dict(self, t, E)
+        model_spectra = self.model._get_initial_spectra_dict(self, t, E)
                 
         # Select times after the end of the model
         t_ext = t > self.t_final
