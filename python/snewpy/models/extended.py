@@ -36,26 +36,25 @@ class ExtendedModel(SupernovaModel):
         """        
         #convert input arguments to 1D arrays
         t = u.Quantity(t, ndmin=1)
-        E = u.Quantity(E, ndmin=1)        
-        Nt, NE = len(t), len(E)
-        
+        E = u.Quantity(E, ndmin=1)   
+
         t_model = t[t <= self.time[-1]]        
         base_model_spectra = self.base_model._get_initial_spectra_dict(t_model, E)
-
+        for flavor in base_model_spectra:
+            if len(t_model) == 1:
+                base_model_spectra[flavor] = np.expand_dims(base_model_spectra[flavor], axis=0)
+            if len(E) == 1:
+                base_model_spectra[flavor] = np.expand_dims(base_model_spectra[flavor], axis=1)
+                
         # Select times after the end of the model
-        t_ext = t[t>self.time[-1]]
+        t_ext = t[t > self.time[-1]]
         f_ext = self.get_extended_time_dependence(t_ext)
-        
+
         array = {} 
         for flavor in flavors:
-            array[flavor] = base_model_spectra[flavor]
-            if Nt == 1:
-                array[flavor] = np.expand_dims(array[flavor], axis=0)
-            if NE == 1:
-                array[flavor] = np.expand_dims(array[flavor], axis=1)
-                
-            extended_model_spectra = np.outer( f_ext, array[flavor][-1,:])
-            array[flavor] = np.append(array[flavor],extended_model_spectra)     
+            extended_model_spectra = np.outer(f_ext , base_model_spectra[flavor][-1,:])
+            array[flavor] = np.append(base_model_spectra[flavor],extended_model_spectra,axis=0)
+            array[flavor] = array[flavor].squeeze()
         
         return array
 
