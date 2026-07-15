@@ -37,9 +37,10 @@ class ExtendedModel(SupernovaModel):
         #convert input arguments to 1D arrays
         t = u.Quantity(t, ndmin=1)
         E = u.Quantity(E, ndmin=1)        
+        Nt, NE = len(t), len(E)
         
         base_model_spectra = self.base_model._get_initial_spectra_dict(t, E)
-                
+
         # Select times after the end of the model
         t_ext = t > self.time[-1]
         f_ext = self.get_extended_time_dependence(t_ext)
@@ -47,10 +48,15 @@ class ExtendedModel(SupernovaModel):
         array = {} 
         for flavor in flavors:
             array[flavor] = base_model_spectra[flavor]
-            extended_model_spectra = np.outer( f_ext, base_model_spectra[flavor][-1,:])
+            if Nt == 1:
+                array[flavor] = np.expand_dims(array[flavor], axis=0)
+            if NE == 1:
+                array[flavor] = np.expand_dims(array[flavor], axis=1)
+                
+            extended_model_spectra = np.outer( f_ext, array[flavor][-1,:])
             array[flavor] = np.append(array[flavor],extended_model_spectra)
         
-        return array
+        return array.squeeze()
 
     def get_extended_time_dependence(self, times):
         """Get time dependence of extended times from supernova cooling tail model.
