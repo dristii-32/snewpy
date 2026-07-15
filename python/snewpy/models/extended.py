@@ -55,8 +55,9 @@ class ExtendedModel(SupernovaModel):
                 
             extended_model_spectra = np.outer( f_ext, array[flavor][-1,:])
             array[flavor] = np.append(array[flavor],extended_model_spectra)
+            array[flavor] = array[flavor].squeeze()            
         
-        return array.squeeze()
+        return array
 
     def get_extended_time_dependence(self, times):
         """Get time dependence of extended times from supernova cooling tail model.
