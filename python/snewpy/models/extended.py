@@ -42,7 +42,7 @@ class ExtendedModel(SupernovaModel):
         base_model_spectra = self.base_model._get_initial_spectra_dict(t, E)
 
         # Select times after the end of the model
-        t_ext = t > self.time[-1]
+        t_ext = t[t>self.time[-1]]
         f_ext = self.get_extended_time_dependence(t_ext)
         
         array = {} 
