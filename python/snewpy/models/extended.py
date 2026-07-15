@@ -55,8 +55,7 @@ class ExtendedModel(SupernovaModel):
                 array[flavor] = np.expand_dims(array[flavor], axis=1)
                 
             extended_model_spectra = np.outer( f_ext, array[flavor][-1,:])
-            array[flavor] = np.append(array[flavor],extended_model_spectra)
-            array[flavor] = array[flavor].squeeze()            
+            array[flavor] = np.append(array[flavor],extended_model_spectra)     
         
         return array
 
