@@ -161,7 +161,7 @@ class Yoshida_2016(SupernovaModel):
                 T += [float(line.split()[1])]
                 data += [[np.loadtxt(f, max_rows=100).flatten() for i in range(4)]]
         times = np.array(T)
-        super().__init__(times << u.s, self.metadata)
+
         energies = np.concatenate([
                 np.linspace(0,10,1001)[1:],
                 np.linspace(10,20,501)[1:]
@@ -173,7 +173,6 @@ class Yoshida_2016(SupernovaModel):
         #rearrange flavors from ['e','e_bar','mu','mu_bar','tau','tau_bar'] to current 
         indices = np.argsort(ThreeFlavor[['e','e_bar','mu','mu_bar','tau','tau_bar']])
         dNdEdT = dNdEdT.take(indices, axis=0)
-        
         
         self.interpolated = _interp_TE(
             times, energies, dNdEdT, ax_t=1, ax_e=2
