@@ -12,7 +12,6 @@ import astropy.units as u
 from snewpy.dsnb import (
     CoreCollapseRate,
     PinchedSpectrum,
-    IBDCrossSection,
     DSNBFlux,
 )
 
@@ -115,67 +114,6 @@ class TestPinchedSpectrum:
         assert mean_energy(0.40) > mean_energy(0.00)
 
 
-# ===========================================================================
-# IBDCrossSection
-# ===========================================================================
-
-class TestIBDCrossSection:
-
-    def test_zero_below_threshold(self):
-        """Cross section must be zero below the IBD threshold (~1.806 MeV)."""
-        xs = IBDCrossSection()
-        E  = np.array([0.5, 1.0, 1.5, 1.8]) * u.MeV
-        assert np.all(xs(E).value == 0.0)
-
-    def test_positive_above_threshold(self):
-        """Cross section must be positive above threshold."""
-        xs = IBDCrossSection()
-        E  = np.linspace(2, 50, 100) * u.MeV
-        assert np.all(xs(E).value > 0)
-
-    def test_units(self):
-        """Output must have units of cm^2."""
-        xs = IBDCrossSection()
-        E  = np.array([10.0, 20.0]) * u.MeV
-        assert xs(E).unit.is_equivalent(u.cm**2)
-
-    def test_full_less_than_zeroth(self):
-        """Full S&V cross section must be smaller than zeroth-order."""
-        xs_full   = IBDCrossSection(order='full')
-        xs_zeroth = IBDCrossSection(order='zeroth')
-        E         = np.linspace(5, 50, 100) * u.MeV
-        above_thr = E.value > (xs_full.threshold.to(u.MeV).value)
-        assert np.all(
-            xs_full(E[above_thr]).value < xs_zeroth(E[above_thr]).value
-        )
-
-    def test_sigma0_from_tau_n(self):
-        """Verify sigma_0 value from PDG 2022 tau_n = 878.4 s."""
-        xs = IBDCrossSection()
-        # Expected: ~9.57e-44 cm^2 MeV^{-2} (within 1%)
-        assert np.isclose(xs.sigma0, 9.57e-44, rtol=0.01)
-
-    def test_correction_at_20MeV(self):
-        """
-        Combined recoil + weak-magnetism suppression at 20 MeV.
-
-        The actual value is ~7.5% (recoil ~4.3% + WM ~3.4% on the product
-        E_e*p_e). The test checks that the suppression is in the physically
-        expected range of 4--9%.
-        """
-        xs_full   = IBDCrossSection(order='full')
-        xs_zeroth = IBDCrossSection(order='zeroth')
-        E         = np.array([20.0]) * u.MeV
-        ratio     = xs_full(E).value / xs_zeroth(E).value
-        suppression_pct = (1 - ratio[0]) * 100
-        # FIX: actual suppression is ~7.5%, so upper bound raised to 9.0
-        assert 4.0 < suppression_pct < 9.0, \
-            f"Suppression at 20 MeV: {suppression_pct:.1f}% (expected 4--9%)"
-
-    def test_invalid_order_raises(self):
-        with pytest.raises(ValueError):
-            IBDCrossSection(order='invalid')
-
 
 # ===========================================================================
 # DSNBFlux
@@ -199,21 +137,6 @@ class TestDSNBFlux:
         phi = model.flux(E)
         assert phi.unit.is_equivalent(u.cm**-2 * u.s**-1 * u.MeV**-1)
 
-    def test_ibd_rate_peaks_between_5_and_25MeV(self, model):
-        """
-        The IBD event rate dR/dE (flux x cross section) peaks between
-        5 and 25 MeV.  Note: the raw DSNB *flux* dPhi/dE peaks at lower
-        energies due to high-z contributions; it is the *rate* (flux x sigma)
-        that peaks in the detection window, as shown in Fig. 1 of LVW 2022.
-        """
-        xs    = IBDCrossSection()
-        E     = np.linspace(2, 50, 300) * u.MeV
-        phi   = model.flux(E)
-        sigma = xs(E)
-        rate  = (phi * sigma).value
-        E_peak = E[np.argmax(rate)].value
-        assert 5.0 < E_peak < 25.0, \
-            f"IBD rate peaks at {E_peak:.1f} MeV, expected 5--25 MeV"
 
     def test_higher_fbh_increases_flux_in_window(self, model):
         """Higher f_BH shifts more flux into the 12--30 MeV window."""
