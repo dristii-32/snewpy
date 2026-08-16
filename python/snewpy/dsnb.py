@@ -25,7 +25,7 @@ Examples
 --------
 >>> import numpy as np
 >>> import astropy.units as u
->>> from snewpy_dsnb.dsnb import DSNBFlux
+>>> from snewpy.dsnb import DSNBFlux
 >>> model = DSNBFlux()
 >>> E = np.linspace(10, 40, 100) * u.MeV
 >>> flux = model.flux(E)
@@ -369,9 +369,6 @@ class DSNBFlux:
         Emission spectrum for successful SNe.
     spectrum_failed : PinchedSpectrum, optional
         Emission spectrum for failed (BH-forming) SNe.
-    f_bh : float, optional
-        Fraction of core collapses forming black holes.  Default: 0.27.
-    Default: full Strumia-Vissani form.
     cosmology : astropy.cosmology instance, optional
         Default: Planck 2018 (H0=67.4, Om0=0.315).
     z_max : float, optional
@@ -385,7 +382,7 @@ class DSNBFlux:
 
     >>> import numpy as np
     >>> import astropy.units as u
-    >>> from snewpy_dsnb.dsnb import DSNBFlux
+    >>> from snewpy.dsnb import DSNBFlux
     >>> model = DSNBFlux()
     >>> E = np.linspace(10, 40, 100) * u.MeV
     >>> flux = model.flux(E)          # cm^{-2} s^{-1} MeV^{-1}
@@ -397,11 +394,6 @@ class DSNBFlux:
     >>> (flux2 > flux).any()           # harder spectrum -> more flux in window
     True
 
-    JUNO-like IBD event rate:
-
-    >>> Np   = 1.22e33                 # free protons, 17 kt LAB
-    >>> rate = model.integrated_ibd_rate(Np)
-    >>> print(f"{rate:.2f}")           # ~1.2 yr^{-1}
     """
 
     def __init__(
@@ -440,7 +432,6 @@ class DSNBFlux:
         cls,
         models_by_mass,
         flavor = Flavor.NU_E_BAR,
-        f_bh   : float = 0.27,
         m_min  : float = 8.0,
         m_max  : float = 100.0,
         **kwargs,
@@ -464,8 +455,6 @@ class DSNBFlux:
             Example: {13: Nakazato_2013(...), 20: Nakazato_2013(...)}
         flavor : snewpy.neutrino.Flavor
             Neutrino flavour.  Default: NU_E_BAR.
-        f_bh : float
-            Black-hole-forming fraction.  Default: 0.27.
         m_min, m_max : float
             Lower and upper mass limits (solar masses) for the IMF
             integration.  Default: 8--100 Msun.
@@ -524,45 +513,12 @@ class DSNBFlux:
                     total   = contrib if total is None else total + contrib
                 return total * u.MeV**-1
 
-        return cls(spectrum_success=_WeightedSpectrum(), f_bh=f_bh, **kwargs)
+        return cls(spectrum_success=_WeightedSpectrum(), **kwargs)
 
-    @classmethod
-    def from_snewpy_model(cls, sn_model, flavor=None, t_start=None,
-                          t_end=None, f_bh=0.27, **kwargs):
-        """
-        Construct DSNBFlux using a SNEWPY simulation model as the
-        successful-SN source spectrum.
-
-        Time-integrates luminosity, meanE, and pinch from the model
-        over the full burst to obtain dN/dE per supernova.
-
-        Parameters
-        ----------
-        sn_model : snewpy SupernovaModel
-            e.g. Nakazato_2013(...), Warren_2020(...)
-        flavor : snewpy.neutrino.Flavor, optional
-            Default: NU_E_BAR.
-        t_start, t_end : astropy.units.Quantity, optional
-            Time window. Default: full burst.
-        f_bh : float
-            BH-forming fraction. Default: 0.27.
-
-        Examples
-        --------
-        >>> from snewpy.models.ccsn import Nakazato_2013
-        >>> import astropy.units as u
-        >>> sn = Nakazato_2013(progenitor_mass=13*u.Msun,
-        ...                    revival_time=100*u.ms,
-        ...                    metallicity=0.02, eos='shen')
-        >>> model = DSNBFlux.from_snewpy_model(sn)
-        """
-        spec = SNEWPYSpectrum(sn_model, flavor=flavor,
-                              t_start=t_start, t_end=t_end)
-        return cls(spectrum_success=spec, f_bh=f_bh, **kwargs)
 
     @classmethod
     def from_snewpy_model_collection(cls, models_with_masses, flavor : Flavor = Flavor.NU_E_BAR,
-                                     imf=None, f_bh=0.27, **kwargs):
+                                     imf=None, **kwargs):
         """
         IMF-weighted average spectrum over multiple SNEWPY models.
 
@@ -573,8 +529,6 @@ class DSNBFlux:
         flavor : snewpy.neutrino.Flavor, optional
         imf : callable, optional
             imf(masses) -> weights. Default: salpeter_imf.
-        f_bh : float
-            Default: 0.27.
 
         Examples
         --------
@@ -590,25 +544,6 @@ class DSNBFlux:
         ... ]
         >>> model = DSNBFlux.from_snewpy_model_collection(pairs)
         """
-        if imf is None:
-            imf = salpeter_imf
-
-        masses  = np.array([m for _, m in models_with_masses], dtype=float)
-        weights = np.asarray(imf(masses), dtype=float)
-        weights = weights / weights.sum()
-
-        spectra = [SNEWPYSpectrum(mdl, flavor=flavor)
-                   for mdl, _ in models_with_masses]
-
-        class _WeightedSpectrum:
-            def __call__(self_, energy):
-                total = None
-                for spec, w in zip(spectra, weights):
-                    contrib = spec(energy).to(u.MeV**-1).value * w
-                    total = contrib if total is None else total + contrib
-                return total * u.MeV**-1
-
-        return cls(spectrum_success=_WeightedSpectrum(), f_bh=f_bh, **kwargs)
 
     def _sn_spectrum(self, energy_mev: np.ndarray) -> np.ndarray:
         """
@@ -744,65 +679,6 @@ class DSNBFlux:
             time   = time_edges,
             energy = energy.to(u.MeV),
         )
-
-# ===========================================================================
-class SNEWPYSpectrum:
-    """
-    SN neutrino emission spectrum derived from a SNEWPY simulation model.
-
-    Time-integrates luminosity, meanE, and pinch from a SNEWPY model
-    to produce dN/dE per supernova.  Drop-in replacement for PinchedSpectrum.
-
-    Parameters
-    ----------
-    sn_model : snewpy SupernovaModel
-        Any model with luminosity, meanE, pinch attributes.
-    flavor : snewpy.neutrino.Flavor, optional
-        Default: NU_E_BAR.
-    t_start, t_end : astropy.units.Quantity, optional
-        Integration window. Default: full burst.
-    """
-
-    _ERG_TO_MEV = 6.241509074e5
-
-    def __init__(
-        self,
-        sn_model,
-        flavor  : Flavor                   = Flavor.NU_E_BAR,
-        t_start : Optional[u.Quantity]     = None,
-        t_end   : Optional[u.Quantity]     = None,
-    ):
-
-        t_all  = sn_model.time.to(u.s).value
-        L_all  = sn_model.luminosity[flavor].to(u.erg / u.s).value
-        Em_all = sn_model.meanE[flavor].to(u.MeV).value
-        al_all = np.asarray(sn_model.pinch[flavor])
-
-        t0 = t_start.to(u.s).value if t_start is not None else t_all.min()
-        t1 = t_end.to(u.s).value   if t_end   is not None else t_all.max()
-        mask = (t_all >= t0) & (t_all <= t1) & (L_all > 0) & (Em_all > 0)
-
-        self._t  = t_all[mask]
-        self._L  = L_all[mask]
-        self._Em = Em_all[mask]
-        self._al = al_all[mask]
-        self.total_energy = float(
-            np.trapezoid(self._L, self._t) * self._ERG_TO_MEV
-        ) * u.MeV
-
-    def __call__(self, energy: u.Quantity) -> u.Quantity:
-        E      = np.atleast_1d(np.asarray(energy.to(u.MeV).value, dtype=float))
-        t, L, Em, al = self._t, self._L, self._Em, self._al
-
-        prefac    = (L * self._ERG_TO_MEV) / Em**2
-        norm      = (1.0 + al)**(1.0 + al) / gamma_func(1.0 + al)
-        x         = E[np.newaxis, :] / Em[:, np.newaxis]
-        a2        = al[:, np.newaxis]
-        shape     = norm[:, np.newaxis] * x**a2 * np.exp(-(1.0 + a2) * x)
-        integrand = prefac[:, np.newaxis] * shape
-        dNdE      = np.trapezoid(integrand, t, axis=0)
-        return dNdE * u.MeV**-1
-
 
 def salpeter_imf(masses: np.ndarray, exponent: float = 2.35) -> np.ndarray:
     """Salpeter (1955) IMF weights: proportional to M^{-exponent}."""
