@@ -14,8 +14,6 @@ CoreCollapseRate
     Redshift-dependent core-collapse SN rate (Hopkins & Beacom 2006).
 PinchedSpectrum
     Quasi-thermal pinched SN neutrino emission spectrum.
-IBDCrossSection
-    IBD cross section (Strumia & Vissani 2003, Vogel & Beacom 1999).
 DSNBFlux
     Full DSNB flux and IBD event rate calculator.
 
@@ -47,37 +45,21 @@ from astropy import constants as const
 from astropy.cosmology import FlatLambdaCDM
 from scipy.special import gamma as gamma_func
 from scipy.ndimage import gaussian_filter1d
+from snewpy.neutrino import Flavor
 from typing import Optional, Union
 
 __all__ = [
     "CoreCollapseRate",
     "PinchedSpectrum",
-    "IBDCrossSection",
     "DSNBFlux",
 ]
 
 # ---------------------------------------------------------------------------
-# Internal physical constants — PDG 2022
-# All in MeV / cm / s to avoid repeated unit conversions in inner loops.
+# Conversions
 # ---------------------------------------------------------------------------
-_DELTA_NP     = 1.29333          # m_n - m_p,  MeV
-_M_E          = 0.51099895       # electron mass, MeV
-_M_N          = 939.565413       # neutron mass, MeV
-_G_A          = 1.2723           # axial-vector coupling |g_A|
-_F_V          = 1.0              # isovector vector form factor at q^2 = 0
-_KAPPA_V      = 3.706            # kappa_p - kappa_n (isovector anomalous moment)
-_TAU_N_S      = 878.4            # neutron lifetime, s  (PDG 2022)
-_F_PHASE      = 1.7152           # Fermi integral f_R with Coulomb + radiative corr.
-_HBAR_C       = 197.3269804e-13  # hbar*c, MeV cm
-_HBAR_MEV_S   = 6.582119569e-22  # hbar, MeV s
 _ERG_TO_MEV   = 6.241509074e5    # 1 erg in MeV
 _MPC_TO_CM    = 3.0856775815e24  # 1 Mpc in cm
 _YR_TO_S      = 3.15576e7        # 1 Julian year in s
-
-# Pre-computed sigma_0 from tau_n (Strumia & Vissani 2003)
-_tau_nat = _TAU_N_S / _HBAR_MEV_S                        # MeV^{-1}
-_SIGMA0  = 2*np.pi**2 * _HBAR_C**2 / (_M_E**5 * _F_PHASE * _tau_nat)
-# = 9.57e-44 cm^2 MeV^{-2}
 
 # Default cosmology: Planck 2018
 _PLANCK18 = FlatLambdaCDM(H0=67.4, Om0=0.315)
@@ -280,20 +262,10 @@ class SNEWPYSpectrum:
     def __init__(
         self,
         sn_model,
-        flavor      = None,
-        t_start     : Optional[u.Quantity] = None,
-        t_end       : Optional[u.Quantity] = None,
+        flavor  : Flavor                   = Flavor.NU_E_BAR,
+        t_start : Optional[u.Quantity]     = None,
+        t_end   : Optional[u.Quantity]     = None,
     ):
-        try:
-            from snewpy.neutrino import Flavor as _Flavor
-        except ImportError as exc:
-            raise ImportError(
-                "snewpy must be installed to use SNEWPYSpectrum. "
-                "Install it with: pip install snewpy"
-            ) from exc
-
-        if flavor is None:
-            flavor = _Flavor.NU_E_BAR
 
         # ── Extract time series from the SNEWPY model ──────────────────────
         t_all   = sn_model.time.to(u.s).value                         # s
@@ -404,8 +376,7 @@ class DSNBFlux:
         Emission spectrum for failed (BH-forming) SNe.
     f_bh : float, optional
         Fraction of core collapses forming black holes.  Default: 0.27.
-    cross_section : IBDCrossSection, optional
-        IBD cross section.  Default: full Strumia-Vissani form.
+    Default: full Strumia-Vissani form.
     cosmology : astropy.cosmology instance, optional
         Default: Planck 2018 (H0=67.4, Om0=0.315).
     z_max : float, optional
@@ -469,34 +440,40 @@ class DSNBFlux:
         self.z_max        = float(z_max)
         self.n_z          = int(n_z)
 
-    @classmethod
+   @classmethod
     def from_snewpy_model_collection(
         cls,
-        models_with_masses,
-        flavor = None,
+        models_by_mass,
+        flavor = Flavor.NU_E_BAR,
         f_bh   : float = 0.27,
+        m_min  : float = 8.0,
+        m_max  : float = 100.0,
         **kwargs,
     ) -> "DSNBFlux":
         """
         Construct a DSNBFlux with an IMF-weighted average spectrum over
         multiple SNEWPY simulation models.
 
-        The spectrum is the Salpeter (1955) IMF-weighted average of the
-        time-integrated emission spectra from each model in the collection.
-        This is the physically appropriate source spectrum for the DSNB
-        since the contribution from each progenitor mass is weighted by
-        how frequently that mass occurs in the stellar population.
+        Each progenitor model is weighted by the integral of the Salpeter
+        (1955) IMF over the mass interval it represents, computed as the
+        midpoints between adjacent progenitor masses.  This gives
+        physically correct weights regardless of how the progenitor masses
+        are spaced, and avoids over-weighting densely sampled mass regions.
 
         Parameters
         ----------
-        models_with_masses : list of (model, mass)
-            Each element is a tuple of a SNEWPY SupernovaModel instance
-            and its progenitor mass in solar masses (float).
-            Example: [(Nakazato_2013(...), 13), (Nakazato_2013(...), 20)]
-        flavor : snewpy.neutrino.Flavor, optional
+        models_by_mass : dict of {float: snewpy SupernovaModel}
+            Mapping from progenitor mass in solar masses to a SNEWPY model.
+            Using a dictionary prevents accidental duplicate progenitor
+            masses and makes the intent explicit.
+            Example: {13: Nakazato_2013(...), 20: Nakazato_2013(...)}
+        flavor : snewpy.neutrino.Flavor
             Neutrino flavour.  Default: NU_E_BAR.
-        f_bh : float, optional
+        f_bh : float
             Black-hole-forming fraction.  Default: 0.27.
+        m_min, m_max : float
+            Lower and upper mass limits (solar masses) for the IMF
+            integration.  Default: 8--100 Msun.
         **kwargs
             Forwarded to :class:`DSNBFlux.__init__`.
 
@@ -507,31 +484,49 @@ class DSNBFlux:
         Examples
         --------
         >>> from snewpy.models.ccsn import Nakazato_2013
+        >>> from snewpy.dsnb import DSNBFlux
         >>> import astropy.units as u
-        >>> pairs = [
-        ...     (Nakazato_2013(progenitor_mass=13*u.Msun,
-        ...                    revival_time=100*u.ms,
-        ...                    metallicity=0.02, eos='shen'), 13),
-        ...     (Nakazato_2013(progenitor_mass=20*u.Msun,
-        ...                    revival_time=100*u.ms,
-        ...                    metallicity=0.02, eos='shen'), 20),
-        ... ]
+        >>> pairs = {
+        ...     13: Nakazato_2013(progenitor_mass=13*u.Msun,
+        ...                       revival_time=100*u.ms,
+        ...                       metallicity=0.02, eos='shen'),
+        ...     20: Nakazato_2013(progenitor_mass=20*u.Msun,
+        ...                       revival_time=100*u.ms,
+        ...                       metallicity=0.02, eos='shen'),
+        ... }
         >>> model = DSNBFlux.from_snewpy_model_collection(pairs)
         """
-        masses  = np.array([m for _, m in models_with_masses], dtype=float)
-        weights = salpeter_imf(masses)
+        from scipy.integrate import quad
+
+        masses = np.array(sorted(models_by_mass.keys()), dtype=float)
+        n      = len(masses)
+
+        # Build interval edges as midpoints between adjacent progenitor masses.
+        # The first and last edges are set to m_min and m_max respectively.
+        edges      = np.empty(n + 1)
+        edges[0]   = m_min
+        edges[-1]  = m_max
+        for i in range(1, n):
+            edges[i] = 0.5 * (masses[i - 1] + masses[i])
+
+        # Weight = integral of Salpeter IMF (M^{-2.35}) over each interval.
+        # This correctly accounts for uneven progenitor mass spacing.
+        weights = np.array([
+            quad(lambda m: m**(-2.35), edges[i], edges[i + 1])[0]
+            for i in range(n)
+        ])
         weights = weights / weights.sum()
 
-        spectra = [SNEWPYSpectrum(mdl, flavor=flavor)
-                   for mdl, _ in models_with_masses]
+        spectra = [SNEWPYSpectrum(models_by_mass[m], flavor=flavor)
+                   for m in masses]
 
         class _WeightedSpectrum:
-            """Salpeter IMF-weighted average of SNEWPY model spectra."""
+            """Salpeter IMF-integrated average of SNEWPY model spectra."""
             def __call__(self_, energy: u.Quantity) -> u.Quantity:
                 total = None
                 for spec, w in zip(spectra, weights):
                     contrib = spec(energy).to(u.MeV**-1).value * w
-                    total = contrib if total is None else total + contrib
+                    total   = contrib if total is None else total + contrib
                 return total * u.MeV**-1
 
         return cls(spectrum_success=_WeightedSpectrum(), f_bh=f_bh, **kwargs)
@@ -571,7 +566,7 @@ class DSNBFlux:
         return cls(spectrum_success=spec, f_bh=f_bh, **kwargs)
 
     @classmethod
-    def from_snewpy_model_collection(cls, models_with_masses, flavor=None,
+    def from_snewpy_model_collection(cls, models_with_masses, flavor : Flavor = Flavor.NU_E_BAR,
                                      imf=None, f_bh=0.27, **kwargs):
         """
         IMF-weighted average spectrum over multiple SNEWPY models.
@@ -699,7 +694,7 @@ class DSNBFlux:
         self,
         energy   : u.Quantity,
         exposure : u.Quantity = 1.0 * u.yr,
-        flavor   = None,
+        flavor   : Flavor     = Flavor.NU_E_BAR,
     ):
         """
         Convert the DSNB differential flux to a SNEWPY Fluence object.
@@ -737,10 +732,6 @@ class DSNBFlux:
         >>> rate = rc.run(fluence)
         """
         from snewpy.flux import Fluence
-        from snewpy.neutrino import Flavor
-
-        if flavor is None:
-            flavor = Flavor.NU_E_BAR
 
         phi = self.flux(energy)                              # cm^{-2} s^{-1} MeV^{-1}
         exp_s = exposure.to(u.s)
@@ -758,45 +749,6 @@ class DSNBFlux:
             time   = time_edges,
             energy = energy.to(u.MeV),
         )
-    # -----------------------------------------------------------------------
-    def smeared_flux(
-        self,
-        energy:              u.Quantity,
-        energy_resolution:   float,
-    ) -> u.Quantity:
-        """
-        Flux convolved with a Gaussian detector energy resolution.
-
-        Approximates the effect of finite energy resolution, which smears
-        events across the detection threshold boundary and raises the
-        effective event rate relative to the ideal analytic result.
-
-        Parameters
-        ----------
-        energy : astropy.units.Quantity
-            Observed energies (must be uniformly spaced).
-        energy_resolution : float
-            Fractional energy resolution coefficient f such that
-            sigma_E = f * sqrt(E / MeV) * MeV.
-            Typical values: 0.03 (JUNO LS), 0.15 (SK-Gd WC).
-
-        Returns
-        -------
-        astropy.units.Quantity
-            Smeared differential flux in cm^{-2} s^{-1} MeV^{-1}.
-        """
-        phi = self.flux(energy)
-        E_mid = np.median(energy.to(u.MeV).value)
-        dE    = np.abs(np.diff(energy.to(u.MeV).value).mean())
-        sigma_E    = energy_resolution * np.sqrt(E_mid)   # MeV
-        sigma_bins = sigma_E / dE
-        smeared    = gaussian_filter1d(
-            phi.to(u.cm**-2 * u.s**-1 * u.MeV**-1).value,
-            sigma=sigma_bins,
-            mode='constant',
-        )
-        return smeared * u.cm**-2 * u.s**-1 * u.MeV**-1
-
 
 # ===========================================================================
 class SNEWPYSpectrum:
@@ -818,14 +770,13 @@ class SNEWPYSpectrum:
 
     _ERG_TO_MEV = 6.241509074e5
 
-    def __init__(self, sn_model, flavor=None, t_start=None, t_end=None):
-        try:
-            from snewpy.neutrino import Flavor as _Flavor
-        except ImportError as exc:
-            raise ImportError("snewpy must be installed to use SNEWPYSpectrum.") from exc
-
-        if flavor is None:
-            flavor = _Flavor.NU_E_BAR
+    def __init__(
+        self,
+        sn_model,
+        flavor  : Flavor                   = Flavor.NU_E_BAR,
+        t_start : Optional[u.Quantity]     = None,
+        t_end   : Optional[u.Quantity]     = None,
+    ):
 
         t_all  = sn_model.time.to(u.s).value
         L_all  = sn_model.luminosity[flavor].to(u.erg / u.s).value
