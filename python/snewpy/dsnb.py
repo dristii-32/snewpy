@@ -716,7 +716,7 @@ class DSNBFlux:
         --------
         >>> import numpy as np
         >>> import astropy.units as u
-        >>> from snewpy_dsnb.dsnb import DSNBFlux
+        >>> from snewpy.dsnb import DSNBFlux
         >>> from snewpy.rate_calculator import RateCalculator
         >>>
         >>> model   = DSNBFlux()
