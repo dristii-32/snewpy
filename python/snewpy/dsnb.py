@@ -6,8 +6,6 @@ following Li, Vagins & Wurm (2022) [arXiv:2201.12920].
 
 The DSNB is the superposition of electron antineutrino bursts from all
 core-collapse supernovae throughout cosmic history, producing a faint
-(~100 cm^{-2} s^{-1}) isotropic background.
-
 Classes
 -------
 CoreCollapseRate
@@ -22,9 +20,6 @@ References
 Li, Vagins & Wurm (2022), arXiv:2201.12920
 Hopkins & Beacom (2006), ApJ 651, 142
 Keil, Raffelt & Janka (2003), ApJ 590, 971
-Strumia & Vissani (2003), Phys. Lett. B 564, 42
-Vogel & Beacom (1999), Phys. Rev. D 60, 053003
-PDG 2022
 
 Examples
 --------
