@@ -544,6 +544,35 @@ class DSNBFlux:
         ... ]
         >>> model = DSNBFlux.from_snewpy_model_collection(pairs)
         """
+        from scipy.integrate import quad
+
+        masses = np.array(sorted(models_with_masses.keys()), dtype=float)
+        n      = len(masses)
+
+        edges      = np.empty(n + 1)
+        edges[0]   = 8.0
+        edges[-1]  = 100.0
+        for i in range(1, n):
+            edges[i] = 0.5 * (masses[i - 1] + masses[i])
+
+        weights = np.array([
+            quad(lambda m: m**(-2.35), edges[i], edges[i + 1])[0]
+            for i in range(n)
+        ])
+        weights = weights / weights.sum()
+
+        spectra = [SNEWPYSpectrum(models_with_masses[m], flavor=flavor)
+                   for m in masses]
+
+        class _WeightedSpectrum:
+            def __call__(self_, energy: u.Quantity) -> u.Quantity:
+                total = None
+                for spec, w in zip(spectra, weights):
+                    contrib = spec(energy).to(u.MeV**-1).value * w
+                    total   = contrib if total is None else total + contrib
+                return total * u.MeV**-1
+
+        return cls(spectrum_success=_WeightedSpectrum(), **kwargs)
 
     def _sn_spectrum(self, energy_mev: np.ndarray) -> np.ndarray:
         """
