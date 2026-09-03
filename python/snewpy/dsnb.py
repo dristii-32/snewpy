@@ -10,11 +10,20 @@ Physics follows Li, Vagins & Wurm (2022) [arXiv:2201.12920].
 Core-collapse rate: Hopkins & Beacom (2006), ApJ 651, 142.
 Cosmology: Planck 2018.
 
+The flavor transformation (flavor_xform) describes MSW oscillations
+*inside each source supernova* and is applied per-progenitor before
+the cosmological redshift integral.  This is not an effect that averages
+out over cosmological distances — every DSNB calculation distinguishes
+between the two mass orderings (Lunardini & Tamborra 2012,
+arXiv:1205.6292, finds ~50–60% variation in NU_E_BAR from MSW alone
+and ~20% hierarchy dependence above 17.3 MeV).
+
 Example
 -------
 >>> from snewpy.models.ccsn import Nakazato_2013
 >>> from snewpy.dsnb import DSNB
->>> from snewpy.flavor_transformation import NoTransformation
+>>> from snewpy.flavor_transformation import AdiabaticMSW, NoTransformation
+>>> from snewpy.neutrino import MassHierarchy
 >>> from snewpy.rate_calculator import RateCalculator
 >>> import astropy.units as u
 >>> import numpy as np
@@ -28,9 +37,17 @@ Example
 >>> model    = DSNB(sn_models)
 >>> times    = [0, 1] * u.yr
 >>> energies = np.linspace(0, 50, 201) * u.MeV
->>> flux     = model.get_flux(t=times, E=energies,
+>>>
+>>> # Normal hierarchy
+>>> flux_NH  = model.get_flux(t=times, E=energies,
+...                           flavor_xform=AdiabaticMSW(mh=MassHierarchy.NORMAL))
+>>> # Inverted hierarchy
+>>> flux_IH  = model.get_flux(t=times, E=energies,
+...                           flavor_xform=AdiabaticMSW(mh=MassHierarchy.INVERTED))
+>>> # Unoscillated (for comparison)
+>>> flux_0   = model.get_flux(t=times, E=energies,
 ...                           flavor_xform=NoTransformation())
->>> fluence  = flux.integrate('time')
+>>> fluence  = flux_NH.integrate('time')
 >>> rc       = RateCalculator()
 >>> events   = rc.run(fluence, "wc100kt30prct")
 """
@@ -53,6 +70,12 @@ _ERG_TO_MEV = 6.241509074e5
 _MPC_TO_CM  = 3.0856775815e24
 _YR_TO_S    = 3.15576e7
 _PLANCK18   = FlatLambdaCDM(H0=67.4, Om0=0.315)
+
+# Reference time and energy used to query flavor transformation probabilities.
+# AdiabaticMSW returns constant (t,E)-independent probabilities, so the
+# specific values here do not matter; they just satisfy the call signature.
+_XFORM_T_REF = 1.0 * u.s
+_XFORM_E_REF = 10.0 * u.MeV
 
 
 class CoreCollapseRate:
@@ -134,15 +157,41 @@ class DSNB:
     object.  Calling flux.integrate('time') gives the fluence over the
     detector exposure window, ready for RateCalculator.
 
-    The DSNB flux integral follows Eq. (1) of Li, Vagins & Wurm (2022):
+    The DSNB flux integral follows Eq. (2.1) of Lunardini & Tamborra
+    (2012) and Eq. (1) of Li, Vagins & Wurm (2022):
 
         dPhi/dE_obs = (c/H0) * integral_0^{z_max}
             R_CC(z) / E(z) * dN/dE_emit[(1+z)*E_obs] * (1+z)  dz
 
-    The per-supernova emission spectrum dN/dE is computed by
-    time-integrating the luminosity, mean energy, and pinching parameter
-    from each SNEWPY model, then taking the Salpeter IMF-weighted average
-    over all progenitor masses.
+    where dN/dE is the *oscillated* per-supernova NU_E_BAR emission
+    spectrum.
+
+    Flavor transformation
+    ---------------------
+    The ``flavor_xform`` argument applies MSW oscillations *inside each
+    source supernova* before the cosmological integration.  This is the
+    physically correct location: MSW is a property of the neutrino
+    emission environment, not of the cosmological propagation.
+    Lunardini & Tamborra (2012) show that MSW dominates the oscillation
+    budget (~50–60% effect on the flux above 17.3 MeV) and that the mass
+    hierarchy produces a ~20% difference in the energy-integrated signal.
+
+    The oscillated NU_E_BAR spectrum at emission is:
+
+        dN/dE_osc = p_eebar * dN/dE_nuebar + p_xebar * dN/dE_nux
+
+    where p_eebar = prob_eebar(t, E) and p_xebar = prob_xebar(t, E)
+    are queried from the SNEWPY flavor transformation object.
+
+    For ``AdiabaticMSW``, these probabilities are constant in (t, E) and
+    depend only on the mass hierarchy:
+
+        NH: p_eebar ≈ 0.68,  p_xebar ≈ 0.16
+        IH: p_eebar ≈ 0.02,  p_xebar ≈ 0.49
+
+    Instantiate with ``AdiabaticMSW(mh=MassHierarchy.NORMAL)`` or
+    ``AdiabaticMSW(mh=MassHierarchy.INVERTED)``.
+    Pass ``NoTransformation()`` or ``None`` for the unoscillated flux.
 
     Parameters
     ----------
@@ -163,18 +212,12 @@ class DSNB:
     n_z : int, optional
         Number of redshift quadrature nodes.  Default: 800.
 
-    Notes
-    -----
-    The current implementation uses the NU_E_BAR component of each SNEWPY
-    model (the IBD target).  The flavor_xform argument is reserved for a
-    future version that applies oscillation effects self-consistently
-    inside the redshift integral.
-
     Examples
     --------
     >>> from snewpy.models.ccsn import Nakazato_2013
     >>> from snewpy.dsnb import DSNB
-    >>> from snewpy.flavor_transformation import NoTransformation
+    >>> from snewpy.flavor_transformation import AdiabaticMSW, NoTransformation
+    >>> from snewpy.neutrino import MassHierarchy
     >>> from snewpy.rate_calculator import RateCalculator
     >>> import astropy.units as u, numpy as np
     >>>
@@ -187,10 +230,10 @@ class DSNB:
     ...                    metallicity=0.02, eos='shen'), 20),
     ... ]
     >>> model   = DSNB(sn_models)
-    >>> flux    = model.get_flux(t=[0,1]*u.yr,
+    >>> flux_NH = model.get_flux(t=[0,1]*u.yr,
     ...                          E=np.linspace(0,50,201)*u.MeV,
-    ...                          flavor_xform=NoTransformation())
-    >>> fluence = flux.integrate('time')
+    ...                          flavor_xform=AdiabaticMSW(mh=MassHierarchy.NORMAL))
+    >>> fluence = flux_NH.integrate('time')
     >>> rc      = RateCalculator()
     >>> events  = rc.run(fluence, "wc100kt30prct")
     """
@@ -240,34 +283,120 @@ class DSNB:
         ])
         return weights / weights.sum()
 
-    def _dNdE_per_sn(self, E_grid: u.Quantity) -> np.ndarray:
+    @staticmethod
+    def _oscillation_probs(flavor_xform) -> tuple[float, float]:
         """
-        IMF-weighted, time-integrated dN/dE [MeV^{-1}] per core collapse.
+        Extract NU_E_BAR survival and NU_X -> NU_E_BAR transition probabilities.
 
-        For each SNEWPY model the burst-integrated emission spectrum is
-        computed by time-integrating the pinched spectrum constructed from
-        the model's luminosity, meanE, and pinch time series for
-        Flavor.NU_E_BAR.  Results are averaged with Salpeter IMF weights.
+        Queries the SNEWPY flavor transformation object using its
+        ``prob_eebar`` and ``prob_xebar`` methods, which accept (t, E)
+        Quantity arguments.
+
+        For ``AdiabaticMSW`` the returned probabilities are independent of
+        (t, E); a single reference point is sufficient.  For transformations
+        that are (t, E)-dependent, this method would need to be extended to
+        evaluate on the full time-energy grid; see _dNdE_per_sn.
+
+        Parameters
+        ----------
+        flavor_xform : SNEWPY flavor transformation or None
+
+        Returns
+        -------
+        p_ee : float
+            P(nu_e_bar -> nu_e_bar) survival probability.
+        p_xe : float
+            P(nu_x_bar -> nu_e_bar) transition probability.
         """
+        if flavor_xform is None:
+            return 1.0, 0.0
+
+        # NoTransformation and any identity-like xform
+        if hasattr(flavor_xform, 'prob_eebar'):
+            p_ee = float(flavor_xform.prob_eebar(_XFORM_T_REF, _XFORM_E_REF))
+        else:
+            raise AttributeError(
+                f"{type(flavor_xform).__name__} does not expose prob_eebar(t, E). "
+                "Pass a SNEWPY flavor transformation such as AdiabaticMSW or "
+                "NoTransformation."
+            )
+
+        if hasattr(flavor_xform, 'prob_xebar'):
+            p_xe = float(flavor_xform.prob_xebar(_XFORM_T_REF, _XFORM_E_REF))
+        else:
+            p_xe = 0.0
+
+        return p_ee, p_xe
+
+    def _dNdE_per_sn(self, E_grid: u.Quantity, flavor_xform=None) -> np.ndarray:
+        """
+        IMF-weighted, time-integrated oscillated dN/dE [MeV^{-1}] per core collapse.
+
+        For each SNEWPY model the oscillated burst-integrated emission
+        spectrum is computed by:
+
+        1. Building the unoscillated pinched spectra for NU_E_BAR and
+           NU_X_BAR (proxy for all heavy-flavour antineutrinos) at each
+           post-bounce time step.
+        2. Mixing them with the MSW probabilities from flavor_xform:
+
+               dN/dE_osc(E, t) = p_ee * dN/dE_nuebar(E, t)
+                                + p_xe * dN/dE_nux(E, t)
+
+        3. Time-integrating over the burst duration.
+        4. Averaging with Salpeter IMF weights over all progenitor masses.
+
+        Parameters
+        ----------
+        E_grid : astropy.units.Quantity
+            Energy grid on which to evaluate dN/dE.
+        flavor_xform : SNEWPY flavor transformation or None
+
+        Returns
+        -------
+        dNdE_total : numpy.ndarray, shape (N_E,)
+            IMF-weighted, time-integrated, oscillated dN/dE in MeV^{-1}.
+        """
+        p_ee, p_xe = self._oscillation_probs(flavor_xform)
+
         E_vals     = E_grid.to(u.MeV).value
         dNdE_total = np.zeros(len(E_vals))
 
         for (model, _mass), weight in zip(self._sorted, self._weights):
-            t  = model.time.to(u.s).value
-            L  = model.luminosity[Flavor.NU_E_BAR].to(u.erg / u.s).value
-            Em = model.meanE[Flavor.NU_E_BAR].to(u.MeV).value
-            al = np.asarray(model.pinch[Flavor.NU_E_BAR], dtype=float)
+            t = model.time.to(u.s).value
 
-            mask         = (L > 0) & (Em > 0)
-            t, L, Em, al = t[mask], L[mask], Em[mask], al[mask]
+            # NU_E_BAR
+            L_eb  = model.luminosity[Flavor.NU_E_BAR].to(u.erg / u.s).value
+            Em_eb = model.meanE[Flavor.NU_E_BAR].to(u.MeV).value
+            al_eb = np.asarray(model.pinch[Flavor.NU_E_BAR], dtype=float)
 
-            prefac = (_ERG_TO_MEV * L / Em**2)[:, np.newaxis]
-            norm   = ((1 + al)**(1 + al) / gamma_func(1 + al))[:, np.newaxis]
-            x      = E_vals[np.newaxis, :] / Em[:, np.newaxis]
-            a2     = al[:, np.newaxis]
-            spec   = prefac * norm * x**a2 * np.exp(-(1 + a2) * x)
+            # NU_MU_BAR as the heavy-flavour antineutrino representative
+            L_x   = model.luminosity[Flavor.NU_X_BAR].to(u.erg / u.s).value
+            Em_x  = model.meanE[Flavor.NU_X_BAR].to(u.MeV).value
+            al_x  = np.asarray(model.pinch[Flavor.NU_X_BAR], dtype=float)
 
-            dNdE_total += weight * np.trapezoid(spec, t, axis=0)
+            # Mask to valid time steps for both flavors
+            mask  = (L_eb > 0) & (Em_eb > 0) & (L_x > 0) & (Em_x > 0)
+            t     = t[mask]
+            L_eb  = L_eb[mask];  Em_eb = Em_eb[mask];  al_eb = al_eb[mask]
+            L_x   = L_x[mask];   Em_x  = Em_x[mask];   al_x  = al_x[mask]
+
+            def _pinched_spectrum(L, Em, al):
+                """Pinched thermal spectrum, shape (N_t, N_E), units MeV^{-1} s^{-1}."""
+                prefac = (_ERG_TO_MEV * L / Em**2)[:, np.newaxis]
+                norm   = ((1 + al)**(1 + al) / gamma_func(1 + al))[:, np.newaxis]
+                x      = E_vals[np.newaxis, :] / Em[:, np.newaxis]
+                a2     = al[:, np.newaxis]
+                return prefac * norm * x**a2 * np.exp(-(1 + a2) * x)
+
+            spec_eb  = _pinched_spectrum(L_eb, Em_eb, al_eb)
+            spec_x   = _pinched_spectrum(L_x,  Em_x,  al_x)
+
+            # Apply oscillation mixing
+            spec_osc = p_ee * spec_eb + p_xe * spec_x   # (N_t, N_E)
+
+            # Time-integrate and accumulate with IMF weight
+            dNdE_total += weight * np.trapezoid(spec_osc, t, axis=0)
 
         return dNdE_total
 
@@ -279,6 +408,14 @@ class DSNB:
     ) -> Flux:
         """
         Compute the DSNB differential flux.
+
+        The flavor transformation describes MSW oscillations *inside each
+        source supernova* and is applied per-progenitor before the
+        cosmological redshift integral.  Pass
+        ``AdiabaticMSW(mh=MassHierarchy.NORMAL)`` or
+        ``AdiabaticMSW(mh=MassHierarchy.INVERTED)`` for the two mass
+        orderings, or ``NoTransformation()`` / ``None`` for the
+        unoscillated flux.
 
         The DSNB is a steady-state background; the returned Flux has the
         same value at every time sample point in t.  Call
@@ -292,21 +429,28 @@ class DSNB:
             Must have at least 2 points for flux.integrate('time') to work.
         E : astropy.units.Quantity
             Observed neutrino energies.
-        flavor_xform : optional
-            Reserved for future oscillation support.  Currently unused.
+        flavor_xform : SNEWPY flavor transformation or None
+            Supernova-matter MSW oscillation model applied per-progenitor
+            inside the redshift integral.  Must expose
+            ``prob_eebar(t, E)`` and ``prob_xebar(t, E)`` methods
+            (standard SNEWPY interface).
 
         Returns
         -------
         snewpy.flux.Flux
             Shape (N_flavor, N_time, N_energy).
-            NU_E_BAR carries the full DSNB flux; all other flavors are zero.
+            NU_E_BAR carries the oscillated DSNB flux; all other flavors
+            are zero.
         """
-        dNdE_fine = self._dNdE_per_sn(self._E_FINE)
+        dNdE_fine = self._dNdE_per_sn(self._E_FINE, flavor_xform=flavor_xform)
 
         E_obs  = np.atleast_1d(E.to(u.MeV).value)
         z      = np.linspace(1e-4, self.z_max, self.n_z)
+
+        # Emitted energy at each (observed energy, redshift): (N_E, N_z)
         E_emit = np.outer(E_obs, 1.0 + z)
 
+        # Interpolate oscillated dN/dE onto the emitted-energy grid
         dNdE_grid = np.interp(
             E_emit.ravel(),
             self._E_FINE.to(u.MeV).value,
