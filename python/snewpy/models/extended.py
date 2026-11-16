@@ -4,10 +4,10 @@ import numpy as np
 from astropy import units as u
 
 from snewpy.neutrino import Flavor
-from snewpy.models.base import SupernovaModel
+from snewpy.models.base import SupernovaModelBase
 
 
-class ExtendedModel(SupernovaModel):
+class ExtendedModel(SupernovaModelBase):
     """Class defining a supernova model with a cooling tail extension."""
 
     def __init__(self, base_model):
