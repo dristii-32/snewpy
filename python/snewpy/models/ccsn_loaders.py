@@ -20,7 +20,7 @@ import numpy as np
 from scipy.special import gamma, lpmv
 
 from snewpy.flux import Spectrum
-from snewpy.models.base import PinchedModel, SupernovaModel
+from snewpy.models.base import PinchedModel, SupernovaModel1D, SupernovaModel3D
 from snewpy.flavor import ThreeFlavor
 from snewpy import _model_downloader
 
@@ -282,7 +282,7 @@ class Kuroda_2020(PinchedModel):
 
         super().__init__(simtab, metadata)
 
-class Fornax_2019(SupernovaModel):
+class Fornax_2019(SupernovaModel3D):
     def __init__(self, filename, metadata={}, cache_flux=False):
         """
         Parameters
@@ -657,7 +657,7 @@ class Fornax_2019(SupernovaModel):
 
         return initial_spectra
 
-class Fornax_2021(SupernovaModel):
+class Fornax_2021(SupernovaModel1D):
     def __init__(self, filename, metadata={}):
         """
         Parameters
