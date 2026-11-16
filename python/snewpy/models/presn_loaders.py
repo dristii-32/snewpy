@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from astropy import units as u
-from snewpy.models.base import SupernovaModel
+from snewpy.models.base import SupernovaModel1D
 from snewpy.flavor import ThreeFlavor
 from pathlib import Path
 
@@ -37,7 +37,7 @@ def _interp_TE(times, energies, array, ax_t=1, ax_e=2):
 
     return _f
 
-class Odrzywolek_2010(SupernovaModel):
+class Odrzywolek_2010(SupernovaModel1D):
     """Set up a presupernova model, based on 
     [A. Odrzywolek and A. Heger, Acta Phys. Polon. B 41 (2010) 1611.]
     """
@@ -78,7 +78,7 @@ class Odrzywolek_2010(SupernovaModel):
         return result
 
 
-class Patton_2017(SupernovaModel):
+class Patton_2017(SupernovaModel1D):
     """Set up a presupernova model based on 
     [Kelly M. Patton et al 2017 ApJ 851 6, 
      https://doi.org/10.5281/zenodo.2598709]
@@ -112,7 +112,7 @@ class Patton_2017(SupernovaModel):
         flux = self.interpolated(t, E) / (u.MeV * u.s)
         return {f: flux[f] for f in flavors}
 
-class Kato_2017(SupernovaModel):
+class Kato_2017(SupernovaModel1D):
     """Set up a presupernova model based on 
     [Chinami Kato et al 2017 ApJ 848 48]
     """
@@ -148,7 +148,7 @@ class Kato_2017(SupernovaModel):
         flux = self.interpolated(t, E) / (u.MeV * u.s)
         return {f: flux[f] for f in flavors}
 
-class Yoshida_2016(SupernovaModel):
+class Yoshida_2016(SupernovaModel1D):
     """Set up a presupernova model based on 
     [Yoshida et al. (2016), PRD 93, 123012.]
     """
@@ -185,7 +185,7 @@ class Yoshida_2016(SupernovaModel):
         flux = self.interpolated(t, E) / (u.MeV * u.s)
         return {f: flux[f] for f in flavors}
     
-class Myers_2026(SupernovaModel):
+class Myers_2026(SupernovaModel1D):
     """Set up a presupernova model based on 
     [Myers et al. (2026) arxiv.org/abs/2604.22605]
     """
