@@ -62,7 +62,7 @@ class SupernovaModelBase(ABC, LocalFileLoader):
             m = self.metadata
         except AttributeError as e:
             clsname = self.__class__.__name__
-            raise TypeError(f"Model not initialized. Please call 'SupernovaModel.__init__' within the '{clsname}.__init__'") from e
+            raise TypeError(f"Model not initialized. Please call 'SupernovaModelBase.__init__' within the '{clsname}.__init__'") from e
 
     def _repr_markdown_(self):
         """Markdown representation of the model, for Jupyter notebooks.
